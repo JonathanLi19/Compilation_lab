@@ -1,0 +1,6 @@
+int inc()
+{
+ int i;
+ i = 213.e1;
+ //FLOAT	    [-+]?({digit}+)?\.{digit}+([eE][-+]?{digit}+)?
+}

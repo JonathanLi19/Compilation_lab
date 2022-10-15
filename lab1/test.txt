@@ -1,0 +1,177 @@
+%{
+ #include <stdio.h>
+ int right = 0;
+ int syserr = 0;
+ int myerr = 0;
+%}
+%locations
+
+/* declared types */
+%union {
+ int type_int;
+ float type_float;
+ double type_double;
+}
+
+/* declared tokens */
+%token <type_int> INT
+%token <type_int> OCT HEX
+%token <type_float> FLOAT
+%token  SEMI COMMA LC RC STRUCT RETURN IF WHILE TYPE ID
+%nonassoc LOWER_THAN_ELSE
+%nonassoc ELSE
+%right  ASSIGNOP
+%left   OR
+%left   AND
+%left   RELOP
+%left   ADD SUB
+%left   MUL DIV
+%right  NOT
+%left   LP RP LB RB DOT
+
+/* declared non-terminals */
+%type <type_double> Program ExtDefList ExtDef Specifier ExtDecList FunDec CompSt VarDec StructSpecifier OptTag DefList Tag VarList ParamDec StmtList Exp Stmt Def DecList Dec Args
+%%
+// High-Level Definitions
+Program : ExtDefList 
+    ;
+ExtDefList :        
+    | ExtDef ExtDefList
+    ;
+ExtDef : Specifier ExtDecList SEMI  
+    | Specifier error               {yyerror("Missing \";\" at this or last line"); }
+    | Specifier SEMI                //"int;" is count?
+    | error SEMI                    {yyerror("Missing or Wrong Specifier"); }
+    | Specifier FunDec CompSt       
+    ;
+ExtDecList : VarDec             
+    | VarDec COMMA ExtDecList  
+    | VarDec error ExtDecList   {yyerror("Missing \",\""); }
+    | VarDec error              {yyerror("Missing \";\" at this or last line"); } 
+    ;
+
+// Specifiers
+Specifier : TYPE        
+    | StructSpecifier   
+    ;
+StructSpecifier : STRUCT OptTag LC DefList RC
+    | STRUCT Tag     
+    | STRUCT OptTag LC error RC                 {yyerror("Wrong struct definition"); }                           
+    ;
+OptTag :    
+    | ID    
+    ;
+Tag : ID    
+    ;
+
+// Declarators
+VarDec : ID
+    | VarDec LB INT RB   
+    | VarDec LB error RB    {yyerror("Missing \"]\""); }
+    | VarDec LB error       {yyerror("Missing \"]\""); }   
+    ;
+FunDec : ID LP VarList RP
+    | ID LP RP              
+    | ID LP error RP        {yyerror("Wrong argument(s)"); }
+    | error LP VarList RP   {yyerror("Wrong function name"); }
+    ;
+VarList : ParamDec COMMA VarList
+    | ParamDec                      
+    ;
+ParamDec : Specifier VarDec 
+    ;
+
+// Statements
+CompSt : LC DefList StmtList RC 
+    | LC error RC                  {yyerror("Wrong statement(s)"); }
+    ;
+StmtList :
+    | Stmt StmtList 
+    ;
+Stmt : Exp SEMI
+    | Exp error SEMI                     {yyerror("Missing \";\" at this or last line"); }
+    | CompSt                        
+    | RETURN Exp SEMI               
+    | IF LP Exp RP Stmt  %prec LOWER_THAN_ELSE //指明该产生式的优先级等同于一个终结符           
+    | IF LP Exp RP Stmt ELSE Stmt   
+    | WHILE LP Exp RP Stmt 
+    | error SEMI                    {yyerror("Wrong expression or Definition after statement"); }
+    | Exp error                     {yyerror("Possibly missing \";\" at this or last line"); }
+    | RETURN Exp error              {yyerror("Possibly missing \";\" at this or last line"); }
+    | RETURN error SEMI             {yyerror("Wrong return value");}         
+    ;
+
+// Local Definitions
+DefList :
+    | Def DefList   
+    ;
+Def : Specifier DecList SEMI     
+    | Specifier error SEMI      {yyerror("Possibly missing ID"); }
+    ;
+DecList : Dec           
+    | Dec COMMA DecList     
+    | Dec error DecList {yyerror("Missing \",\"");}
+    | Dec error         {yyerror("Possibly missing \";\" at this or last line"); }  
+    ;
+Dec : VarDec                
+    | VarDec ASSIGNOP Exp  
+    | VarDec ASSIGNOP error   {yyerror("Wrong expression"); }
+    ;
+
+// Expressions
+Exp : Exp ASSIGNOP Exp      
+    | Exp AND Exp           
+    | Exp OR Exp            
+    | Exp RELOP Exp         
+    | Exp ADD Exp           
+    | Exp SUB Exp         
+    | Exp MUL Exp         
+    | Exp DIV Exp           
+    | LP Exp RP             
+    | SUB Exp   
+    | NOT Exp               
+    | ID LP Args RP         
+    | ID LP RP              
+    | Exp LB Exp RB      
+    | Exp DOT ID            
+    | ID                    
+    | INT                   
+    | FLOAT   
+    | OCT
+    | HEX       
+    | Exp ASSIGNOP error    {yyerror("Wrong expression"); }
+    | Exp AND error         {yyerror("Wrong expression"); }
+    | Exp OR error          {yyerror("Wrong expression"); }
+    | Exp RELOP error       {yyerror("Wrong expression"); }
+    | Exp ADD error         {yyerror("Wrong expression"); }
+    | Exp SUB error         {yyerror("Wrong expression"); }
+    | Exp MUL error         {yyerror("Wrong expression"); }
+    | Exp DIV error         {yyerror("Wrong expression"); }
+    | LP error RP           {yyerror("Wrong expression"); }
+    | SUB error             {yyerror("Wrong expression"); }
+    | NOT error             {yyerror("Wrong expression"); }
+    | ID LP error RP        {yyerror("Wrong argument(s)"); }
+    | ID LP error SEMI      {yyerror("Missing \")\"");}
+    | Exp LB error RB       {yyerror("Missing \"]\"");}
+    | Exp LB error SEMI     {yyerror("Missing \"]\"");}          
+    ;
+Args : Exp COMMA Args   
+    | Exp               
+    ;
+
+%%
+#include "lex.yy.c"
+void yyerror(const char *msg)
+{
+    right = 0;
+    if (msg == "syntax error")
+    {
+        printf("Error type B at Line %d: %s.", yylineno, msg);
+        syserr++;
+    }
+    else
+    {
+        printf(" %s.\n", msg);
+        myerr++;
+    }
+}
