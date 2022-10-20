@@ -57,6 +57,7 @@ ExtDef : Specifier ExtDecList SEMI  {$$=add_bisonnode("ExtDef",@$.first_line);bu
     | Specifier SEMI                {$$=add_bisonnode("ExtDef",@$.first_line);build_tree($$,2,$1,$2);}
     | error SEMI                    {yyerror("Missing or Wrong Specifier"); }
     | Specifier FunDec CompSt       {$$=add_bisonnode("ExtDef",@$.first_line);build_tree($$,3,$1,$2,$3);}
+    | Specifier FunDec SEMI         {$$=add_bisonnode("ExtDef",@$.first_line);build_tree($$,3,$1,$2,$3);}
     ;
 ExtDecList : VarDec                 {$$=add_bisonnode("ExtDecList",@$.first_line);build_tree($$,1,$1);}
     | VarDec COMMA ExtDecList       {$$=add_bisonnode("ExtDecList",@$.first_line);build_tree($$,3,$1,$2,$3); }

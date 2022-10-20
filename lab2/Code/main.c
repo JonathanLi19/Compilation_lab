@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "semantic.h"
 extern int syserr, myerr, no_error;
 extern struct Node* Root;
 void tree_search(struct Node* root,int depth);
@@ -15,11 +16,7 @@ int main(int argc, char** argv)
     yyparse();
     if (no_error)
     {
-        tree_search(Root,0);
-    }
-    else if (syserr > myerr)
-    {
-        printf("\n");
+        Program_check(Root);
     }
     return 0;
 }

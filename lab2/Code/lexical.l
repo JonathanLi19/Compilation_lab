@@ -23,8 +23,8 @@ struct Node
     {
         int int_content;
         float float_content;
-        char string_content[32];//包含的内容
-    };
+        char string_content[32];
+    };//包含的内容
     int unit;//unit type: 0--lexical,1--syntax;
     int line_num;//表示行数;
     NODE_TYPE type;
