@@ -126,7 +126,7 @@ hash_stack enter_domain()
     hash_stack ret = malloc(sizeof(struct hash_stack_));
     ret->head = NULL;
     ret->next = domain_head;
-    domain_head = ret->next;
+    domain_head = ret;
     return ret;
 }
 //离开域时调用,先删除domain_head中的第一项，然后进入hash_table删除对应的一系列node
@@ -189,7 +189,6 @@ void check_func()
 
 //向结构体符号表中插入符号，0为正常，1为结构体重定义。
 int insert_struct(Type type, char *name)
-//insert_struct(Type type,char*name)
 {
     int idx = hash_pjw(name);
     if (struct_head[idx].head == NULL)
@@ -202,23 +201,11 @@ int insert_struct(Type type, char *name)
     }
     else
     {
-        ST_node list_head = struct_head[idx].head;
-        ST_node check_iter = list_head;
-        //遍历对应槽
-        while (check_iter->hash_next != NULL)
-        {
-            if (strcmp(list_head->name, name) == 0)
-            {
-                printf("struct redifined!");
-                //此处要做判断, 插入失败
-                return 1;
-            }
-        }
-        //插入
+        //插入，由于插入之前已经find_struct过了，所以不需要再检查是否有域名重定义了
         ST_node cur = malloc(sizeof(struct ST_node_));
         cur->type = type;
-        cur->hash_next = list_head;
-        strcpy(cur->name, name);
+        cur->hash_next = struct_head[idx].head;
+        cur->name = name;
         struct_head[idx].head = cur;
     }
     return 0;
@@ -226,7 +213,6 @@ int insert_struct(Type type, char *name)
 
 //返回的结构体，只需要一个参数，即结构体名
 ST_node find_struct(char *name)
-//query_struct(Type*type,char*name)
 {
     int idx = hash_pjw(name);
     ST_node cur = struct_head[idx].head;
@@ -389,33 +375,6 @@ unsigned int hash_pjw(char *name)
     return val;
 }
 
-//加点东西
-int struct_Find(Type *type, char *name)
-{
-    int value = hash_pjw(name);
-    if (struct_head[value].head == NULL)
-        return -1;
-    else
-    {
-        ST_node tmp_structList = struct_head[value].head;
-        int flag = 0;
-        while (tmp_structList != NULL)
-        {
-            if (strcmp(tmp_structList->name, name) == 0)
-            {
-                *type = tmp_structList->type;
-                flag = 1;
-                return 0;
-            }
-            tmp_structList = tmp_structList->hash_next;
-            if (tmp_structList == NULL)
-                break;
-        }
-        if (flag == 0)
-            return -1;
-    }
-}
-
 int symbol_Find_mrk(Type *type, char *name, int *ifdef, int depth, int mrk)
 {
     int value = hash_pjw(name);
@@ -478,5 +437,113 @@ int symbol_Kind_find(Type *type, char *name, int *ifdef, int depth, int *kind)
         }
         if (flag == 0)
             return -1;
+    }
+}
+
+void print_error(int err_type, int err_col, char *message)
+{
+    printf("Error type %d at Line %d: ", err_type, err_col);
+    switch (err_type)
+    {
+    case (1):
+    {
+        printf("Undefined variable \"%s\".\n", message);
+        break;
+    }
+    case (2):
+    {
+        printf("Undefined function \"%s\".\n", message);
+        break;
+    }
+    case (3):
+    {
+        printf("Redefined variable \"%s\".\n", message);
+        break;
+    }
+    case (4):
+    {
+        printf("Redefined function \"%s\".\n", message);
+        break;
+    }
+    case (5):
+    {
+        printf("Type mismatched for assignment.\n");
+        break;
+    }
+    case (6):
+    {
+        printf("The left-hand side of an assignment must be a variable.\n");
+        break;
+    }
+    case (7):
+    {
+        printf("Type mismatched for operands.\n");
+        break;
+    }
+    case (8):
+    {
+        printf("Type mismatched for return.\n");
+        break;
+    }
+    case (9):
+    {
+        printf("Function is not applicable for arguments.\n");
+        break;
+    }
+    case (10):
+    {
+        printf("This is not an array.\n");
+        break;
+    }
+    case (11):
+    {
+        printf("\"%s\" is not a function.\n", message);
+        break;
+    }
+    case (12):
+    {
+        printf("This is not an integer.\n");
+        break;
+    }
+    case (13):
+    {
+        printf("Illegal use of \".\".\n");
+        break;
+    }
+    case (14):
+    {
+        printf("Non-existent field \"%s\".\n", message);
+        break;
+    }
+    case (15):
+    {
+        printf("Redefined field \"%s\".\n", message);
+        break;
+    }
+    case (16):
+    {
+        printf("Duplicated name \"%s\".\n", message);
+        break;
+    }
+    case (17):
+    {
+        printf("Undefined structure \"%s\".\n", message);
+        break;
+    }
+    case (18):
+    {
+        printf("Undefined function \"%s\".\n", message);
+        break;
+    }
+    case (19):
+    {
+        printf("Inconsistent declaration of function \"%s\".\n", message);
+        break;
+    }
+    default:
+    {
+        printf("Other Mistakes, content is :%s\n", message);
+        break;
+    }
     }
 }

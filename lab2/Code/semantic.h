@@ -32,26 +32,25 @@ struct Node
 };
 extern void func(struct Node* s_node,int h);
 #endif
-void print_error(int err_type, int err_col, char *message);
-int Program_check(struct Node *cur_node);
-int ExtDefList_check(struct Node *cur_node);
-int ExtDef_check(struct Node *cur_node);
-int CompSt_check(struct Node *cur_node, hash_stack cur_stack, Type cur_type);
-int StmtList_check(struct Node *cur_node, hash_stack cur_stack, Type cur_type);
-int Stmt_check(struct Node *cur_node, hash_stack cur_stack, Type cur_type);
-int DefList_check(struct Node *cur_node, hash_stack cur_stack);
-int Def_check(struct Node *cur_node, hash_stack cur_stack);
-int DecList_check(struct Node *cur_node, hash_stack cur_stack, Type cur_type);
-int Dec_check(struct Node *cur_node, hash_stack cur_stack, Type cur_type);
-Type Exp_check(struct Node *cur_node);
-int Arg_check(struct Node *cur_node, FieldList paras);
-int FunDec_check(struct Node *cur_node, const int is_define, const Type cur_type, hash_stack cur_stack);
-FieldList VarList_check(struct Node *cur_node, hash_stack cur_stack);
-FieldList ParamDec_check(struct Node *cur_node);
-Type Specifier_check(struct Node *cur_node);
-FieldList Def_struct_check(struct Node *cur_node, char *struct_name);
-FieldList Dec_struct_check(struct Node *cur_node, Type cur_type);
-FieldList VarDec_check(struct Node *cur_node, Type cur_type);
-int ExtDecList_check(struct Node *cur_node, Type cur_type);
-
+int Program(struct Node *cur_node);
+int ExtDefList(struct Node *cur_node);
+int ExtDef(struct Node *cur_node);
+int CompSt(struct Node *cur_node, hash_stack cur_stack, Type cur_type);
+int StmtList(struct Node *cur_node, hash_stack cur_stack, Type cur_type);
+int Stmt(struct Node *cur_node, hash_stack cur_stack, Type cur_type);
+int DefList(struct Node *cur_node, hash_stack cur_stack);
+int Def(struct Node *cur_node, hash_stack cur_stack);
+int DecList(struct Node *cur_node, hash_stack cur_stack, Type cur_type);
+int Dec(struct Node *cur_node, hash_stack cur_stack, Type cur_type);
+Type Exp(struct Node *cur_node);
+int Arg(struct Node *cur_node, FieldList paras);
+int FunDec(struct Node *cur_node, const int is_define, const Type cur_type, hash_stack cur_stack);
+FieldList VarList(struct Node *cur_node, hash_stack cur_stack);
+FieldList ParamDec(struct Node *cur_node);
+Type Specifier(struct Node *cur_node);
+FieldList Def_struct(struct Node *cur_node, char *struct_name);
+FieldList Dec_struct(struct Node *cur_node, Type cur_type);
+FieldList VarDec(struct Node *cur_node, Type cur_type);
+int ExtDecList(struct Node *cur_node, Type cur_type);
+FieldList DefList_struct(struct Node *cur_node,char* name_ofStruct);
 #endif

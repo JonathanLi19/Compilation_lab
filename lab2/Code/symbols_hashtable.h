@@ -14,6 +14,7 @@ typedef struct hash_stack_* hash_stack;
 typedef struct func_list_* func_list;
 
 hash_stack ST_init();
+void print_error(int err_type, int err_col, char *message);
 ST_node init_symbol(Type type, char *name, int is_define, int depth);
 void insert_symbol(ST_node my_node, hash_stack domain);
 ST_node find_symbol(char *name, int depth);
@@ -33,6 +34,7 @@ int query_struct(Type *type, char *name);
 int query_symbol_exist_mrk(Type *type, char *name, int *ifdef, int depth, int mrk);
 int query_symbol_exist2(Type *type, char *name, int *ifdef, int depth, int *kind);
 int symbol_Find_mrk(Type *type, char *name, int *ifdef, int depth, int mrk);
+int symbol_Kind_find(Type *type, char *name, int *ifdef, int depth, int *kind);
 
 struct FieldList_
 {

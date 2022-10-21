@@ -18,129 +18,27 @@ ST_node new_STnode(int kind, Type type, char *name, int is_define, int depth)
 
 struct Node* getchild(struct Node* cur,int depth)
 {
-	struct Node*temp=cur;
-	temp=temp->child;
-	if(depth==0){
+    if(cur == NULL)
+        return NULL;
+	struct Node*temp = cur;
+	temp = temp->child;
+	if(depth==0)
+    {
 		return temp;
 	}
 
-	for(int i=1;i<=depth;i++){
-		temp=temp->next_sib;
+	for(int i=1;i<=depth;i++)
+    {
+        if(temp == NULL)
+            return NULL;
+		temp = temp->next_sib;
 	}
 	return temp;
 
 }
-//type_eq
-void print_error(int err_type, int err_col, char *message)
-{
-    printf("Error type %d at Line %d: ", err_type, err_col);
-    switch (err_type)
-    {
-    case (1):
-    {
-        printf("Undefined variable \"%s\".\n", message);
-        break;
-    }
-    case (2):
-    {
-        printf("Undefined function \"%s\".\n", message);
-        break;
-    }
-    case (3):
-    {
-        printf("Redefined variable \"%s\".\n", message);
-        break;
-    }
-    case (4):
-    {
-        printf("Redefined function \"%s\".\n", message);
-        break;
-    }
-    case (5):
-    {
-        printf("Type mismatched for assignment.\n");
-        break;
-    }
-    case (6):
-    {
-        printf("The left-hand side of an assignment must be a variable.\n");
-        break;
-    }
-    case (7):
-    {
-        printf("Type mismatched for operands.\n");
-        break;
-    }
-    case (8):
-    {
-        printf("Type mismatched for return.\n");
-        break;
-    }
-    case (9):
-    {
-        printf("Function is not applicable for arguments.\n");
-        break;
-    }
-    case (10):
-    {
-        printf("This is not an array.\n");
-        break;
-    }
-    case (11):
-    {
-        printf("\"%s\" is not a function.\n", message);
-        break;
-    }
-    case (12):
-    {
-        printf("This is not an integer.\n");
-        break;
-    }
-    case (13):
-    {
-        printf("Illegal use of \".\".\n");
-        break;
-    }
-    case (14):
-    {
-        printf("Non-existent field \"%s\".\n", message);
-        break;
-    }
-    case (15):
-    {
-        printf("Redefined field \"%s\".\n", message);
-        break;
-    }
-    case (16):
-    {
-        printf("Duplicated name \"%s\".\n", message);
-        break;
-    }
-    case (17):
-    {
-        printf("Undefined structure \"%s\".\n", message);
-        break;
-    }
-    case (18):
-    {
-        printf("Undefined function \"%s\".\n", message);
-        break;
-    }
-    case (19):
-    {
-        printf("Inconsistent declaration of function \"%s\".\n", message);
-        break;
-    }
-    default:
-    {
-        printf("Other Mistakes, content is :%s\n", message);
-        break;
-    }
-    }
-}
 
 int depth_ = 0;
-int withoutname_cnt = 0;
+int num_struct_without_name = 0;
 hash_stack Domain_head = NULL;//作用域控制栈
 
 int Program(struct Node *cur_node)
@@ -188,7 +86,7 @@ int ExtDef(struct Node *cur_node)
             struct Node *FunDec_node = tmp_node1;
             if (strcmp(tmp_node2->name, "SEMI") == 0)
             {
-                hash_stack new_hashstack = enter_domain();
+                hash_stack new_hashstack = enter_domain(); //我觉得不用enter
                 FunDec(FunDec_node, 0, tmp_type, new_hashstack);
                 exit_domain();
             }
@@ -213,15 +111,10 @@ int CompSt(struct Node *cur_node, hash_stack cur_stack, Type cur_type)
     // DefList -> Def DefList
     // | (empty)
     struct Node *tmp_node1 = getchild(cur_node, 1);
-    //printf("here.\n");
-    //printf("%s\n",tmp_node1->name);
 
     if (strcmp(tmp_node1->name, "DefList") == 0)
     {
-        //printf("here\n");
         DefList(tmp_node1, cur_stack);
-        //printf("here.\n");
-        //printf("here.\n");
         struct Node *StmtList_node = getchild(cur_node, 2);
 
         if (strcmp(StmtList_node->name, "StmtList") == 0)
@@ -294,6 +187,8 @@ int Stmt(struct Node *cur_node, hash_stack cur_stack, Type cur_type)
     }
     else if (strcmp(tmp_node0->name, "IF") == 0)
     {
+        // | IF LP Exp RP Stmt
+        // | IF LP Exp RP Stmt ELSE Stmt
         struct Node *tmp_node2 = getchild(cur_node, 2);
         struct Node *tmp_node5 = getchild(cur_node, 5);
         Type If_type2 = Exp(tmp_node2);
@@ -319,8 +214,6 @@ int DefList(struct Node *cur_node, hash_stack cur_stack)
 {
     //DefList -> Def DefList
     // | (empty)
-    if (cur_node == NULL)
-        return 0;
     if (getchild(cur_node, 0) != NULL)
     {
         Def(getchild(cur_node, 0), cur_stack);
@@ -335,9 +228,7 @@ int Def(struct Node *cur_node, hash_stack cur_stack)
     //	Def -> Specifier DecList SEMI
 
     Type Specifier_type = Specifier(getchild(cur_node, 0));
-
     DecList(getchild(cur_node, 1), cur_stack, Specifier_type);
-
     return 0;
 }
 
@@ -361,26 +252,12 @@ int Dec(struct Node *cur_node, hash_stack cur_stack, Type cur_type)
 {
     // 	Dec -> VarDec
     // | VarDec ASSIGNOP Exp
-    //printf("here5749.\n");
     FieldList VarDec_field = VarDec(getchild(cur_node, 0), cur_type);
-    //printf("here5749.\n");
-    //query_symbol_name
-    Type tmp_typee = (Type)malloc(sizeof(struct Type_));
-    int tmp_isdefine; //symbol_Find_mrk
-    int result = symbol_Find_mrk(&tmp_typee, VarDec_field->name, &tmp_isdefine, depth_, 0);
-    //int result = query_symbol_name(VarDec_field->name, depth_);
-    Type Ty_res = (Type)malloc(sizeof(struct Type_));
-    int empty_isdefine, new_kind;
-    int result1 = symbol_Kind_find(&Ty_res, VarDec_field->name, &empty_isdefine, depth_, &new_kind);
-
-    //printf("%s\n",getchild(cur_node, 1)->name);
+    ST_node found = find_symbol(VarDec_field->name, depth_);
 
     if (getchild(cur_node, 1) == NULL) // Dec -> VarDec
     {
-        if (result == 0) //符号已存在，重复定义，报错3
-            print_error(3, cur_node->line_num, VarDec_field->name);
-        else if (result1 == 0 && Ty_res->kind == STRUCTURE && new_kind == STRUCT_NAME)
-            //与结构体名字重复，重复定义，报错3
+        if (found != NULL) //符号已存在，重复定义，报错3
             print_error(3, cur_node->line_num, VarDec_field->name);
         else
         {
@@ -390,25 +267,21 @@ int Dec(struct Node *cur_node, hash_stack cur_stack, Type cur_type)
     }
     else // | VarDec ASSIGNOP Exp
     {
-        //printf("%d\n",result);//assert(0);
-        int result1 = symbol_Kind_find(&Ty_res, VarDec_field->name, &empty_isdefine, depth_, &new_kind);
-        if (result == 0) //符号已存在，重复定义，报错3
+        if (found != NULL) //符号已存在，重复定义，报错3
             print_error(3, cur_node->line_num, VarDec_field->name);
         else
         {
 
             ST_node insert_node = new_STnode(VARIABLE, VarDec_field->type, VarDec_field->name, 1, depth_);
             insert_symbol(insert_node, cur_stack); //插入符号
+
             Type exp_type = Exp(getchild(cur_node, 2));
             if (exp_type != NULL)
             {
                 if (type_eq(VarDec_field->type, exp_type) == 0) //赋值号左右类型不匹配，报错5
-                {                                               //printf("here\n");
+                {
                     print_error(5, cur_node->line_num, NULL);
                 }
-                else if (result1 == 0 && Ty_res->kind == STRUCTURE && new_kind == STRUCT_NAME)
-                    //与结构体名字重复，重复定义，报错3
-                    print_error(3, cur_node->line_num, VarDec_field->name);
             }
         }
     }
@@ -431,7 +304,7 @@ Type Exp(struct Node *cur_node)
 	| ID LP Args RP
 	| ID LP RP
 	| Exp LB Exp RB
-	| Exp DOT ID;
+	| Exp DOT ID
 	| ID
 	| INT
 	| FLOAT
@@ -444,48 +317,44 @@ Type Exp(struct Node *cur_node)
     struct Node *tmp_node1 = getchild(cur_node, 1);
     //左值: ID,EXP DOT ID(结构体) Exp LB Exp RB (数组)
 
-    if (strcmp(tmp_node0->name, "Exp") == 0)
+    if (strcmp(tmp_node0->name, "Exp") == 0 && tmp_node1 != NULL && strcmp(tmp_node1->name, "ASSIGNOP") == 0)//Exp -> Exp ASSIGNOP Exp
     {
-        if (tmp_node1 != NULL && strcmp(tmp_node1->name, "ASSIGNOP") == 0) //Exp -> Exp ASSIGNOP Exp
+        struct Node *tmp_node00 = getchild(tmp_node0, 0);
+        struct Node *tmp_node01 = getchild(tmp_node0, 1);
+        if (tmp_node01 == NULL)
         {
-            struct Node *tmp_node00 = getchild(tmp_node0, 0);
-            struct Node *tmp_node01 = getchild(tmp_node0, 1);
-            if (tmp_node01 == NULL)
+            //左值: ID
+            //非标识符，则赋值号左边只有右值，报错6
+            print_error(6, cur_node->line_num, NULL);
+            return NULL;
+        }
+        else
+        {
+            struct Node *tmp_node02 = getchild(tmp_node0, 2);
+            if (tmp_node02 != NULL)
             {
-                if (strcmp(tmp_node00->name, "ID") != 0) //左值: ID
-                {                                        //非标识符，则赋值号左边只有右值，报错6
-                    print_error(6, cur_node->line_num, NULL);
-                    return NULL;
-                }
-            }
-            else
-            {
-                struct Node *tmp_node02 = getchild(tmp_node0, 2);
-                if (tmp_node02 != NULL)
+                struct Node *tmp_node03 = getchild(tmp_node0, 3);
+                if (tmp_node03 == NULL)
                 {
-                    struct Node *tmp_node03 = getchild(tmp_node0, 3);
-                    if (tmp_node03 == NULL)
-                    {
-                        if (strcmp(tmp_node00->name, "Exp") != 0 || strcmp(tmp_node01->name, "DOT") != 0 || strcmp(tmp_node02->name, "ID") != 0)
-                        { ////左值: EXP DOT ID(结构体)，赋值号左边只有右值，报错6
-                            print_error(6, cur_node->line_num, NULL);
-                            return NULL;
-                        }
-                    }
-                    else
-                    {
-                        if (strcmp(tmp_node00->name, "Exp") != 0 || strcmp(tmp_node01->name, "LB") != 0 || strcmp(tmp_node02->name, "Exp") != 0 || strcmp(tmp_node03->name, "RB") != 0)
-                        { //左值: Exp LB Exp RB (数组)，赋值号左边只有右值，报错6
-                            print_error(6, cur_node->line_num, NULL);
-                            return NULL;
-                        }
+                    if (strcmp(tmp_node00->name, "Exp") != 0 || strcmp(tmp_node01->name, "DOT") != 0 || strcmp(tmp_node02->name, "ID") != 0)
+                    { ////左值: EXP DOT ID(结构体)，赋值号左边只有右值，报错6
+                        print_error(6, cur_node->line_num, NULL);
+                        return NULL;
                     }
                 }
                 else
-                { //无二元左值满足条件，赋值号左边只有右值，报错6
-                    print_error(6, cur_node->line_num, NULL);
-                    return NULL;
+                {
+                    if (strcmp(tmp_node00->name, "Exp") != 0 || strcmp(tmp_node01->name, "LB") != 0 || strcmp(tmp_node02->name, "Exp") != 0 || strcmp(tmp_node03->name, "RB") != 0)
+                    { //左值: Exp LB Exp RB (数组)，赋值号左边只有右值，报错6
+                        print_error(6, cur_node->line_num, NULL);
+                        return NULL;
+                    }
                 }
+            }
+            else
+            { //无二元左值满足条件，赋值号左边只有右值，报错6
+                print_error(6, cur_node->line_num, NULL);
+                return NULL;
             }
         }
     }
@@ -493,30 +362,16 @@ Type Exp(struct Node *cur_node)
     {
         if (strcmp(tmp_node0->name, "ID") == 0)
         {
-            Type Tmp_type = (Type)(malloc(sizeof(struct Type_)));
-            int Tmp_is_define; //symbol_Find_mrk
-            int result_local = symbol_Find_mrk(&Tmp_type, tmp_node0->string_content, &Tmp_is_define, depth_, 0);
-            Type new_tmp_type = (Type)(malloc(sizeof(struct Type_)));
-            int tmp_isDefine;
-            int tmp_kind;
-            int result_global = symbol_Kind_find(&new_tmp_type, tmp_node0->string_content, &tmp_isDefine, depth_, &tmp_kind);
-            if (result_local == 0)
-            { //找到局部定义
-                result = Tmp_type;
+            ST_node found = find_symbol(tmp_node0->string_content, depth_);
+            if (found != NULL && found->is_define == 1 && found->kind == VARIABLE)
+            { //找到定义
+                result = found->type;
                 return result;
             }
             else
             {
-                if (result_global != 0 || (result_global == 0 && tmp_kind != VARIABLE))
-                { //全局也无定义，或定义不是变量，报错1
-                    print_error(1, cur_node->line_num, tmp_node0->string_content);
-                    return NULL;
-                }
-                else
-                { //找到全局定义
-                    result = new_tmp_type;
-                    return result;
-                }
+                print_error(1, cur_node->line_num, tmp_node0->string_content);
+                return NULL;
             }
         }
         else if (strcmp(tmp_node0->name, "INT") == 0)
@@ -536,34 +391,48 @@ Type Exp(struct Node *cur_node)
     }
     else
     {
+        /*
+        | Exp AND Exp
+        | Exp OR Exp
+        | Exp RELOP Exp
+        | Exp PLUS Exp
+        | Exp MINUS Exp
+        | Exp STAR Exp
+        | Exp DIV Exp
+
+        | Exp LB Exp RB
+	    | Exp DOT ID
+        */
+
         // | LP Exp RP
         // | MINUS Exp
         // | NOT Exp
+
         // | ID LP Args RP
         // | ID LP RP
         struct Node *tmp_nodee2 = getchild(cur_node, 2);
         if (tmp_nodee2 != NULL)
         {
             struct Node *tmp_nodee3 = getchild(cur_node, 3);
-            if (tmp_nodee3 == NULL && strcmp(tmp_nodee2->name, "Exp") == 0 && strcmp(tmp_node1->name, "LB") != 0)
+            if (tmp_nodee3 == NULL && strcmp(tmp_nodee2->name, "Exp") == 0)
             {
+                /*
+                | Exp AND Exp
+                | Exp OR Exp
+                | Exp RELOP Exp
+                | Exp PLUS Exp
+                | Exp MINUS Exp
+                | Exp STAR Exp
+                | Exp DIV Exp
+                */
                 struct Node *exp_1 = tmp_node0;
                 struct Node *exp_2 = tmp_nodee2;
                 Type exp1type = Exp(exp_1);
                 Type exp2type = Exp(exp_2);
-                //printf("%d\n",exp1type->kind);
-                //printf("%d\n",exp2type->kind);
                 if (exp1type != NULL && exp2type != NULL)
                 {
                     int exp_eqornot = type_eq(exp1type, exp2type);
-                    //printf("%d\n",exp_eqornot);
-                    if (exp_eqornot == 0 && strcmp(tmp_node1->name, "ASSIGNOP") == 0)
-                    {
-                        //printf("here\n");
-                        print_error(5, cur_node->line_num, NULL);
-                        return NULL;
-                    }
-                    if (exp_eqornot == 0)
+                    if (exp_eqornot == 0) //操作数类型不匹配
                     {
                         print_error(7, cur_node->line_num, NULL);
                         return NULL;
@@ -577,6 +446,61 @@ Type Exp(struct Node *cur_node)
                 else
                     return NULL;
             }
+            else if(tmp_nodee3 == NULL && strcmp(tmp_node0->name, "Exp") == 0 && strcmp(tmp_node1->name, "DOT") == 0 && strcmp(tmp_nodee2->name, "ID") == 0)
+            {
+                //Exp DOT ID
+                Type exp_nodetype = Exp(tmp_node0);
+                if (exp_nodetype != NULL)
+                {
+                    if (exp_nodetype->kind != STRUCTURE)
+                    { //报错13
+                        print_error(13, cur_node->line_num, NULL);
+                        return NULL;
+                    }
+                    else
+                    {
+                        char *node2_name = tmp_nodee2->string_content;
+                        char *field_name = (char *)(malloc(sizeof(char) * (1 + strlen(node2_name) + strlen(exp_nodetype->u.my_struct.name))));
+                        strcpy(field_name, node2_name);
+                        strcat(field_name, exp_nodetype->u.my_struct.name);
+                        Type find_Type = (Type)(malloc(sizeof(struct Type_)));
+                        if (find_struct(field_name) != NULL)
+                        {
+                            result = find_Type;
+                            return result;
+                        }
+                        else
+                        {
+                            print_error(14, cur_node->line_num, node2_name);
+                            return NULL;
+                        }
+                    }
+                }
+                else
+                    return NULL;
+            }
+            else if(tmp_nodee3 != NULL && strcmp(tmp_node0->name, "Exp") == 0 && strcmp(tmp_node1->name, "LB") == 0 && strcmp(tmp_nodee2->name, "Exp") == 0)
+            {
+                //Exp LB Exp RB
+                Type Exp_node0 = Exp(tmp_node0), Exp_node2 = Exp(tmp_nodee2);
+                if (Exp_node0 == NULL || Exp_node2 == NULL)
+                    return NULL;
+                if (Exp_node0->kind != ARRAY)
+                {
+                    print_error(10, cur_node->line_num, NULL);
+                    return NULL;
+                }
+                else
+                {
+                    if (Exp_node2->kind != BASIC || Exp_node2->u.basic != 0)
+                    {
+                        print_error(12, cur_node->line_num, NULL);
+                        return NULL;
+                    }
+                }
+                result = Exp_node0->u.array.elem;
+                return result;
+            }
         }
         if (strcmp(tmp_node0->name, "LP") == 0 || strcmp(tmp_node0->name, "MINUS") == 0 || strcmp(tmp_node0->name, "NOT") == 0)
         {
@@ -585,134 +509,48 @@ Type Exp(struct Node *cur_node)
             result = exp1type;
             return result;
         }
-        //print_error(19
         if (strcmp(tmp_node0->name, "ID") == 0)
         {
-
             char *name_function = tmp_node0->string_content;
-            Type tmp_findtype = (Type)(malloc(sizeof(struct Type_)));
-            int tmp_isdef = -1;                                                                    //query_symbol_exist_mrk
-            int find_ornot = symbol_Find_mrk(&tmp_findtype, name_function, &tmp_isdef, depth_, 1); //在全局里面搜索;
+            ST_node found = find_symbol(name_function, depth_);
+            Type tmp_findtype = found->type;
+
             result = tmp_findtype->u.function.ret_para;
-            if (find_ornot == 0)
+
+            if (found != NULL)
             {
-                if (tmp_findtype->kind != FUNCTION)
+                if (found->type->kind != FUNCTION)
                 { //报错11
                     print_error(11, cur_node->line_num, name_function);
                     return NULL;
                 }
             }
-            if (find_ornot == -1)
-            { //struct_Find
+            if (found == NULL || found->is_define == 0)
+            { //函数在调用时未经定义
                 print_error(2, cur_node->line_num, name_function);
                 return NULL;
             }
             if (strcmp(tmp_nodee2->name, "Args") == 0)
             {
-                if (tmp_findtype->u.function.paras == NULL)
+                int args_num = Arg(tmp_nodee2, tmp_findtype->u.function.paras);
+                if (args_num == -1)
+                    return NULL;
+                else if(args_num != tmp_findtype->u.function.para_num)
                 {
-
                     print_error(9, cur_node->line_num, NULL);
                     return NULL;
                 }
-                else
-                {
-                    int num_count = 0;
-                    struct Node *now_node = tmp_nodee2;
-                    while (1)
-                    {
-                        num_count++;
-                        struct Node *tmp_newnod = getchild(now_node, 1);
-                        if (tmp_newnod == NULL)
-                            break;
-                        now_node = getchild(now_node, 2);
-                    }
-
-                    if (num_count != tmp_findtype->u.function.para_num)
-                    {
-                        //print_error(19
-                        print_error(9, cur_node->line_num, NULL);
-                        return NULL;
-                    }
-                    if (Arg(tmp_nodee2, tmp_findtype->u.function.paras) == 0)
-                        return result;
-                    else
-                        return NULL;
-                }
+                return result;
             }
             else
             {
                 if (tmp_findtype->u.function.paras != NULL)
                 {
-
                     print_error(9, cur_node->line_num, NULL);
                     return NULL;
                 }
                 else
                     return result;
-            }
-        }
-        else
-        {
-            struct Node *tmp_nodee3 = getchild(cur_node, 3);
-            if (tmp_nodee3 == NULL)
-            {
-                if (strcmp(tmp_node0->name, "Exp") == 0 && strcmp(tmp_node1->name, "DOT") == 0 && strcmp(tmp_nodee2->name, "ID") == 0)
-                {
-                    Type exp_nodetype = Exp(tmp_node0);
-                    if (exp_nodetype != NULL)
-                    {
-                        if (exp_nodetype->kind != STRUCTURE)
-                        { //报错13
-                            print_error(13, cur_node->line_num, NULL);
-                            return NULL;
-                        }
-                        else
-                        {
-                            char *node2_name = tmp_nodee2->string_content;
-                            char *field_name = (char *)(malloc(sizeof(char) * (1 + strlen(node2_name) + strlen(exp_nodetype->u.my_struct.name))));
-                            strcpy(field_name, node2_name);
-                            strcat(field_name, exp_nodetype->u.my_struct.name);
-                            Type find_Type = (Type)(malloc(sizeof(struct Type_)));
-                            if (struct_Find(&find_Type, field_name) == 0)
-                            {
-                                result = find_Type;
-                                return result;
-                            }
-                            else
-                            {
-                                print_error(14, cur_node->line_num, node2_name);
-                                return NULL;
-                            }
-                        }
-                    }
-                    else
-                        return NULL;
-                }
-            }
-            else
-            {
-                if (strcmp(tmp_node0->name, "Exp") == 0 && strcmp(tmp_node1->name, "LB") == 0 && strcmp(tmp_nodee2->name, "Exp") == 0)
-                {
-                    Type Exp_node0 = Exp(tmp_node0), Exp_node2 = Exp(tmp_nodee2);
-                    if (Exp_node0 == NULL || Exp_node2 == NULL)
-                        return NULL;
-                    if (Exp_node0->kind != ARRAY)
-                    {
-                        print_error(10, cur_node->line_num, NULL);
-                        return NULL;
-                    }
-                    else
-                    {
-                        if (Exp_node2->kind != BASIC || Exp_node2->u.basic != 0)
-                        {
-                            print_error(12, cur_node->line_num, NULL);
-                            return NULL;
-                        }
-                    }
-                    result = Exp_node0->u.array.elem;
-                    return result;
-                }
             }
         }
     }
@@ -722,31 +560,32 @@ Type Exp(struct Node *cur_node)
 int Arg(struct Node *cur_node, FieldList paras)
 {
     /*Args -> Exp COMMA Args
-| Exp;
-*/
-    //struct Node *tmp_node0 = getchild(cur_node, 0);
-    //struct Node *tmp_node1 = getchild(cur_node, 1);
+    | Exp;
+    */
+    int args_num = 0;
     if (paras == NULL)
     { //参数NULL，报错9
 
         print_error(9, cur_node->line_num, NULL);
         return -1;
     }
-    Type exp_type = Exp(getchild(cur_node, 0));
-    if (exp_type != NULL)
+    if (paras->type == NULL) //参数类型NULL，报错9
     {
-        if (paras->type == NULL) //参数类型NULL，报错9
-            print_error(9, cur_node->line_num, NULL);
-        else
-        {
-            int result = type_eq(exp_type, paras->type);
-            if (result == 0)
-            { //参数类型不匹配，报错9
-                print_error(9, cur_node->line_num, NULL);
-                return -1;
-            }
-        }
+        print_error(9, cur_node->line_num, NULL);
+        return -1;
     }
+    Type exp_type = Exp(getchild(cur_node, 0));
+    if(exp_type == NULL)
+        return -1;
+
+    int result = type_eq(exp_type, paras->type);
+    if (result == 0)
+    { //参数类型不匹配，报错9
+        print_error(9, cur_node->line_num, NULL);
+        return -1;
+    }
+    args_num++;
+
     if (getchild(cur_node, 1) != NULL)
     {
         if (paras->tail == NULL)
@@ -755,9 +594,15 @@ int Arg(struct Node *cur_node, FieldList paras)
             return -1;
         }
         else
-            return Arg(getchild(cur_node, 2), paras->tail);
+        {
+            int num = Arg(getchild(cur_node, 2), paras->tail);
+            if(num == -1)
+                return -1;
+            else
+                args_num += num;
+        }
     }
-    return 0;
+    return args_num;
 }
 
 int FunDec(struct Node *cur_node, const int is_define, const Type cur_type, hash_stack cur_stack)
@@ -907,6 +752,30 @@ Type Specifier(struct Node *cur_node)
     return type;
 }
 
+FieldList DefList_struct(struct Node *cur_node,char* name_ofStruct)
+{
+    FieldList result = NULL, now_field = NULL;
+    while (cur_node != NULL)
+    {
+        struct Node *tmp_defnode0 = getchild(cur_node, 0);
+        if (tmp_defnode0 == NULL)
+            break;
+        FieldList tmp_defplus = Def_struct(tmp_defnode0, name_ofStruct);
+        if (result == NULL)
+        {
+            result = tmp_defplus;
+            now_field = result;
+        }
+        else
+        {
+            now_field->tail = tmp_defplus;
+            now_field = now_field->tail;
+        }
+        cur_node = getchild(cur_node, 1);
+    }
+    return result;
+}
+
 Type StructSpecifier(struct Node *cur_node)
 {
     /*
@@ -942,25 +811,7 @@ Type StructSpecifier(struct Node *cur_node)
                 {
                     //DefList -> Def DefList
                     // | (empty)
-                    FieldList result = NULL, now_field = NULL;
-                    while (Deflist_node != NULL)
-                    {
-                        struct Node *tmp_defnode0 = getchild(Deflist_node, 0);
-                        if (tmp_defnode0 == NULL)
-                            break;
-                        FieldList tmp_defplus = Def_struct(tmp_defnode0, name_ofStruct);
-                        if (result == NULL)
-                        {
-                            result = tmp_defplus;
-                            now_field = result;
-                        }
-                        else
-                        {
-                            now_field->tail = tmp_defplus;
-                            now_field = now_field->tail;
-                        }
-                        Deflist_node = getchild(Deflist_node, 1);
-                    }
+                    FieldList result = DefList_struct(Deflist_node, name_ofStruct);
                     type->u.my_struct.structure = result;
                 }
             }
@@ -970,59 +821,39 @@ Type StructSpecifier(struct Node *cur_node)
     }
     else if (strcmp(tmp_node01->name, "Tag") == 0) //STRUCT Tag
     {
-        struct Node *tmp_node_010 = getchild(tmp_node01, 0);
-        char *node_name4 = tmp_node_010->string_content;
-        Type tmp_typeagain = NULL;
-        int def_tmp; //query_symbol
-        if (symbol_Find_mrk(&tmp_typeagain, node_name4, &def_tmp, depth_, 1) != 0)
+        struct Node *ID = getchild(tmp_node01, 0);
+        char *id_name = ID->string_content;
+
+        if (find_symbol(id_name,depth_) == NULL)
         { //结构体未定义，报错17
-            print_error(17, tmp_node_010->line_num, node_name4);
+            print_error(17, ID->line_num, id_name);
             return NULL;
         }
-        else if (tmp_typeagain == NULL || tmp_typeagain->kind != STRUCTURE)
+        else if (find_symbol(id_name,depth_)->type->kind != STRUCTURE)
         {//报错17
-            print_error(17, tmp_node_010->line_num, node_name4);
+            print_error(17, ID->line_num, id_name);
             return NULL;
         }
         else
-            return tmp_typeagain;
+            return find_symbol(id_name,depth_)->type;
     }
     else if (strcmp(tmp_node01->name, "LC") == 0) //OptTag -> (empty)
     {
-        withoutname_cnt += 1;
+        num_struct_without_name += 1;
         char *name_ofStruct = (char *)malloc(32 + 1);
-        sprintf(name_ofStruct, "no_name %d", withoutname_cnt);
+        sprintf(name_ofStruct, "no_name_struct %d", num_struct_without_name);
         type->u.my_struct.name = (char *)malloc(sizeof(char) * 32);
         strcpy(type->u.my_struct.name, name_ofStruct);
-        struct Node *tmp_node03 = getchild(cur_node, 2);
-        if (strcmp(tmp_node03->name, "DefList") != 0)
+
+        struct Node *DefList_node = getchild(cur_node, 2);
+        if (strcmp(DefList_node->name, "DefList") != 0)
             type->u.my_struct.structure = NULL;
         else
         {
-            struct Node *Def_node = tmp_node03;
-            FieldList result = NULL,now_field = NULL;
-            while (1)
-            {
-                struct Node *tmp_defnode0 = getchild(Def_node, 0);
-                if (tmp_defnode0 == NULL)
-                    break;
-                FieldList tmp_defplus = Def_struct(tmp_defnode0, name_ofStruct);
-                if (result == NULL)
-                {
-                    result = tmp_defplus;
-                    now_field = result;
-                }
-                else
-                {
-                    now_field->tail = tmp_defplus;
-                    now_field = now_field->tail;
-                }
-                Def_node = getchild(Def_node, 1);
-                if (Def_node == NULL)
-                    break;
-            }
+            FieldList result = DefList_struct(DefList_node, name_ofStruct);
             type->u.my_struct.structure = result;
         }
+        return type;
     }
 }
 
@@ -1033,22 +864,23 @@ FieldList Def_struct(struct Node *cur_node, char *struct_name)
 	DecList -> Dec
 		| Dec COMMA DecList
 	*/
-    struct Node *DecList_node = getchild(cur_node, 1);
-    struct Node *new_DecListNode = DecList_node;
+    struct Node *DecListNode = getchild(cur_node, 1);
     Type nowtype = Specifier(getchild(cur_node, 0));
     FieldList res_field = NULL, tmp_field = NULL;
-    while (getchild(new_DecListNode, 1) != NULL)
+
+    while (DecListNode != NULL)
     {
-        struct Node *Dec_node = getchild(new_DecListNode, 0);
+        struct Node *Dec_node = getchild(DecListNode, 0);
         FieldList Dec_field = Dec_struct(Dec_node, nowtype);
         char *Dec_name = (char *)malloc(1 + strlen(struct_name) + strlen(Dec_field->name));
         strcpy(Dec_name, Dec_field->name);
         strcat(Dec_name, struct_name);
-        Type tmp_typee = (Type)malloc(sizeof(struct Type_));
-        if (struct_Find(&tmp_typee, Dec_name) == 0) //域名重复定义 query_struct_name
+
+        if (find_struct(Dec_name) != NULL) //结构体中域名重复定义
             print_error(15, Dec_node->line_num, Dec_field->name);
         else
             insert_struct(Dec_field->type, Dec_name);
+
         if (res_field == NULL)
         {
             res_field = Dec_field;
@@ -1059,29 +891,8 @@ FieldList Def_struct(struct Node *cur_node, char *struct_name)
             tmp_field->tail = Dec_field;
             tmp_field = tmp_field->tail;
         }
-        new_DecListNode = getchild(new_DecListNode, 2);
-    } //重复一次
-    struct Node *Dec_node = getchild(new_DecListNode, 0);
-    FieldList Dec_field = Dec_struct(Dec_node, nowtype);
-    char *Dec_name = (char *)malloc(strlen(struct_name) + strlen(Dec_field->name) + 1);
-    strcpy(Dec_name, Dec_field->name);
-    strcat(Dec_name, struct_name);
-    Type nulltype = (Type)malloc(sizeof(struct Type_));
-    if (struct_Find(&nulltype, Dec_name) == 0)
-        print_error(15, Dec_node->line_num, Dec_field->name);
-    else
-        insert_struct(Dec_field->type, Dec_name);
-    if (res_field == NULL)
-    {
-        res_field = Dec_field;
-        tmp_field = res_field;
+        DecListNode = getchild(DecListNode, 2);
     }
-    else
-    { //query_symbol_exist
-        tmp_field->tail = Dec_field;
-        tmp_field = tmp_field->tail;
-    }
-
     return res_field;
 }
 
@@ -1089,6 +900,7 @@ FieldList Dec_struct(struct Node *cur_node, Type cur_type)
 {
     //Dec -> VarDec
     //| VarDec ASSIGNOP Exp
+    // 这里不能出现VarDec ASSIGNOP Exp
     FieldList field = VarDec(getchild(cur_node, 0), cur_type);
     if (getchild(cur_node, 1) != NULL) //定义是不能初始化，报错15
         print_error(15, cur_node->line_num, field->name);
