@@ -254,34 +254,27 @@ int Dec(struct Node *cur_node, hash_stack cur_stack, Type cur_type)
     // | VarDec ASSIGNOP Exp
     FieldList VarDec_field = VarDec(getchild(cur_node, 0), cur_type);
     ST_node found = find_symbol(VarDec_field->name, depth_);
-
+    if (found != NULL) //符号已存在，重复定义，报错3
+    {
+        print_error(3, cur_node->line_num, VarDec_field->name);
+        return 0;
+    }
     if (getchild(cur_node, 1) == NULL) // Dec -> VarDec
     {
-        if (found != NULL) //符号已存在，重复定义，报错3
-            print_error(3, cur_node->line_num, VarDec_field->name);
-        else
-        {
-            ST_node insert_node = new_STnode(VARIABLE, VarDec_field->type, VarDec_field->name, 1, depth_);
-            insert_symbol(insert_node, cur_stack); //插入符号
-        }
+        ST_node insert_node = new_STnode(VARIABLE, VarDec_field->type, VarDec_field->name, 1, depth_);
+        insert_symbol(insert_node, cur_stack); //插入符号
     }
     else // | VarDec ASSIGNOP Exp
     {
-        if (found != NULL) //符号已存在，重复定义，报错3
-            print_error(3, cur_node->line_num, VarDec_field->name);
-        else
+        ST_node insert_node = new_STnode(VARIABLE, VarDec_field->type, VarDec_field->name, 1, depth_);
+        insert_symbol(insert_node, cur_stack); //插入符号
+
+        Type exp_type = Exp(getchild(cur_node, 2));
+        if (exp_type != NULL)
         {
-
-            ST_node insert_node = new_STnode(VARIABLE, VarDec_field->type, VarDec_field->name, 1, depth_);
-            insert_symbol(insert_node, cur_stack); //插入符号
-
-            Type exp_type = Exp(getchild(cur_node, 2));
-            if (exp_type != NULL)
+            if (type_eq(VarDec_field->type, exp_type) == 0) //赋值号左右类型不匹配，报错5
             {
-                if (type_eq(VarDec_field->type, exp_type) == 0) //赋值号左右类型不匹配，报错5
-                {
-                    print_error(5, cur_node->line_num, NULL);
-                }
+                print_error(5, cur_node->line_num, NULL);
             }
         }
     }
@@ -309,7 +302,6 @@ Type Exp(struct Node *cur_node)
 	| INT
 	| FLOAT
 	*/
-    //printf("here2\n");
     if (cur_node == NULL)
         return NULL;
     Type result = NULL;
@@ -321,14 +313,13 @@ Type Exp(struct Node *cur_node)
     {
         struct Node *tmp_node00 = getchild(tmp_node0, 0);
         struct Node *tmp_node01 = getchild(tmp_node0, 1);
-        if (tmp_node01 == NULL)
+        if (tmp_node01 == NULL && strcmp(tmp_node00->name,"ID") != 0)
         {
-            //左值: ID
-            //非标识符，则赋值号左边只有右值，报错6
+            // INT FLOAT
             print_error(6, cur_node->line_num, NULL);
             return NULL;
         }
-        else
+        else if(tmp_node01 != NULL)
         {
             struct Node *tmp_node02 = getchild(tmp_node0, 2);
             if (tmp_node02 != NULL)
@@ -336,16 +327,16 @@ Type Exp(struct Node *cur_node)
                 struct Node *tmp_node03 = getchild(tmp_node0, 3);
                 if (tmp_node03 == NULL)
                 {
-                    if (strcmp(tmp_node00->name, "Exp") != 0 || strcmp(tmp_node01->name, "DOT") != 0 || strcmp(tmp_node02->name, "ID") != 0)
-                    { ////左值: EXP DOT ID(结构体)，赋值号左边只有右值，报错6
+                    if (!(strcmp(tmp_node00->name, "Exp") == 0 && strcmp(tmp_node01->name, "DOT") == 0 && strcmp(tmp_node02->name, "ID") == 0))
+                    { // 不是左值: EXP DOT ID(结构体)，赋值号左边只有右值，报错6
                         print_error(6, cur_node->line_num, NULL);
                         return NULL;
                     }
                 }
                 else
                 {
-                    if (strcmp(tmp_node00->name, "Exp") != 0 || strcmp(tmp_node01->name, "LB") != 0 || strcmp(tmp_node02->name, "Exp") != 0 || strcmp(tmp_node03->name, "RB") != 0)
-                    { //左值: Exp LB Exp RB (数组)，赋值号左边只有右值，报错6
+                    if (!(strcmp(tmp_node00->name, "Exp") == 0 && strcmp(tmp_node01->name, "LB") == 0 && strcmp(tmp_node02->name, "Exp") == 0 && strcmp(tmp_node03->name, "RB") == 0))
+                    { // 不是左值: Exp LB Exp RB (数组)，赋值号左边只有右值，报错6
                         print_error(6, cur_node->line_num, NULL);
                         return NULL;
                     }
@@ -356,6 +347,19 @@ Type Exp(struct Node *cur_node)
                 print_error(6, cur_node->line_num, NULL);
                 return NULL;
             }
+        }
+        // 如果没有发生错误6
+        struct Node *tmp_node2 = getchild(cur_node, 2);
+        Type Exp1_type = Exp(tmp_node0);
+        Type Exp2_type = Exp(tmp_node2);
+        if(Exp1_type == NULL || Exp2_type == NULL)
+            return NULL;
+        else if(type_eq(Exp1_type, Exp2_type))
+            return Exp1_type;
+        else
+        {
+            print_error(5, tmp_node0->line_num, NULL);
+            return NULL;
         }
     }
     if (tmp_node1 == NULL) //ID INT FLOAT
@@ -513,21 +517,16 @@ Type Exp(struct Node *cur_node)
         {
             char *name_function = tmp_node0->string_content;
             ST_node found = find_symbol(name_function, depth_);
-            Type tmp_findtype = found->type;
-
-            result = tmp_findtype->u.function.ret_para;
-
-            if (found != NULL)
-            {
-                if (found->type->kind != FUNCTION)
-                { //报错11
-                    print_error(11, cur_node->line_num, name_function);
-                    return NULL;
-                }
-            }
             if (found == NULL || found->is_define == 0)
             { //函数在调用时未经定义
                 print_error(2, cur_node->line_num, name_function);
+                return NULL;
+            }
+            Type tmp_findtype = found->type;
+            result = tmp_findtype->u.function.ret_para;
+            if (found->type->kind != FUNCTION)
+            { //报错11
+                print_error(11, cur_node->line_num, name_function);
                 return NULL;
             }
             if (strcmp(tmp_nodee2->name, "Args") == 0)
@@ -609,7 +608,6 @@ int FunDec(struct Node *cur_node, const int is_define, const Type cur_type, hash
 {
     //FunDec -> ID LP VarList RP
     //| ID LP RP
-
     struct Node *tmp_node0 = getchild(cur_node, 0);
     char *name_function = tmp_node0->string_content;
 
@@ -696,7 +694,10 @@ FieldList VarList(struct Node *cur_node, hash_stack cur_stack)
 
     ST_node found = find_symbol(result->name, depth_);
     if (found != NULL && found->kind == STRUCT_NAME) //变量与已定义结构体重复，报错3
+    {
         print_error(3, cur_node->line_num, result->name);
+        return NULL;
+    }
 
     ST_node newvar_node = new_STnode(VARIABLE, result->type, result->name, 1, depth_);
     insert_symbol(newvar_node, cur_stack);
@@ -840,7 +841,7 @@ Type StructSpecifier(struct Node *cur_node)
     else if (strcmp(tmp_node01->name, "LC") == 0) //OptTag -> (empty)
     {
         num_struct_without_name += 1;
-        char *name_ofStruct = (char *)malloc(32 + 1);
+        char *name_ofStruct = (char *)malloc(32 + 2);
         sprintf(name_ofStruct, "no_name_struct %d", num_struct_without_name);
         type->u.my_struct.name = (char *)malloc(sizeof(char) * 32);
         strcpy(type->u.my_struct.name, name_ofStruct);
@@ -864,6 +865,7 @@ FieldList Def_struct(struct Node *cur_node, char *struct_name)
 	DecList -> Dec
 		| Dec COMMA DecList
 	*/
+    printf("OK1\n");
     struct Node *DecListNode = getchild(cur_node, 1);
     Type nowtype = Specifier(getchild(cur_node, 0));
     FieldList res_field = NULL, tmp_field = NULL;
@@ -877,7 +879,10 @@ FieldList Def_struct(struct Node *cur_node, char *struct_name)
         strcat(Dec_name, struct_name);
 
         if (find_struct(Dec_name) != NULL) //结构体中域名重复定义
+        {
             print_error(15, Dec_node->line_num, Dec_field->name);
+            return NULL;
+        }
         else
             insert_struct(Dec_field->type, Dec_name);
 
@@ -901,10 +906,15 @@ FieldList Dec_struct(struct Node *cur_node, Type cur_type)
     //Dec -> VarDec
     //| VarDec ASSIGNOP Exp
     // 这里不能出现VarDec ASSIGNOP Exp
+    printf("OK2\n");
     FieldList field = VarDec(getchild(cur_node, 0), cur_type);
+    if(field == NULL)
+        return NULL;
     if (getchild(cur_node, 1) != NULL) //定义是不能初始化，报错15
+    {
         print_error(15, cur_node->line_num, field->name);
-
+        return NULL;
+    }
     return field;
 }
 
@@ -972,7 +982,10 @@ int ExtDecList(struct Node *cur_node, Type cur_type)
     int tmp_isdefine;
 
     if (find_symbol(VarDec_field->name, depth_) != NULL) //变量重复定义，报错3
+    {
         print_error(3, cur_node->line_num, VarDec_field->name);
+        return 0;
+    }
     else
     {   //没出错就插入符号表
         ST_node Insert_node = new_STnode(VARIABLE, VarDec_field->type, VarDec_field->name, 1, depth_);

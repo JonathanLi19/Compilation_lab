@@ -16,7 +16,7 @@ int main(int argc, char** argv)
     yyparse();
     if (no_error)
     {
-        Program_check(Root);
+        Program(Root);
     }
     return 0;
 }

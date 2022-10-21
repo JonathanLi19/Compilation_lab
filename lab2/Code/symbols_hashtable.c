@@ -42,7 +42,7 @@ void insert_symbol(ST_node my_node, hash_stack domain)
             domain->head = my_node;
         else
         {
-            while (cur->ctrl_next)
+            while (cur->ctrl_next != NULL)
                 cur = cur->ctrl_next;
             cur->ctrl_next = my_node;
         }
@@ -81,9 +81,6 @@ ST_node find_symbol(char *name, int depth)
 void free_node(ST_node del)
 {
     free(del->type);
-    free(del->name);
-    free(del->hash_next);
-    free(del->ctrl_next);
     return;
 }
 
@@ -113,10 +110,12 @@ void delete_domain_nodes(hash_stack domain)
         HT_iter->hash_next = node_del->hash_next;
 
         domain->head = node_del->ctrl_next;
-
-        free_node(node_del);
-        free_node(HT_iter);
+        node_del = NULL;
+        HT_iter = NULL;
+        //free_node(node_del);
+        //free_node(HT_iter);
     }
+    free(domain);
     return;
 }
 
@@ -139,11 +138,8 @@ void exit_domain()
         return;
     }
     domain_head = domain_head->next;
-
     //进入hash_table删除对应的一系列node
     delete_domain_nodes(domain_del);
-    free(domain_del);
-
     return;
 }
 
@@ -230,11 +226,7 @@ ST_node find_struct(char *name)
 
 //检测两个类型是否相等
 int type_eq(Type A, Type B)
-//check_type(Type A,Type B)
 {
-    FieldList field_A = A->u.my_struct.structure;
-    FieldList field_B = B->u.my_struct.structure;
-
     //为同一指针
     if (A == B)
         return 1;
@@ -254,29 +246,34 @@ int type_eq(Type A, Type B)
             {
                 //数字，这里选择直接返回两者的值相等
                 return (A->u.basic == B->u.basic);
-                break;
             }
             case ARRAY:
             {
-                //数组，这里检测弱相等，即当两者的维度相等时，我们就认为数组相等。
+                //数组，这里检测弱相等，即当两者的维度相等而且基类型相等时，我们就认为数组相等。
                 int dim_A = 0, dim_B = 0;
+                int kind_A = 0, kind_B = 0;
                 Type cur_A = A, cur_B = B;
                 while (cur_A != NULL)
                 {
                     cur_A = cur_A->u.array.elem;
                     dim_A += 1;
                     if (cur_A->kind != ARRAY)
+                    {
+                        kind_A = cur_A->kind;
                         break;
+                    }
                 }
                 while (cur_B != NULL)
                 {
                     cur_B = cur_B->u.array.elem;
                     dim_B += 1;
                     if (cur_B->kind != ARRAY)
+                    {
+                        kind_B = cur_B->kind;
                         break;
+                    }
                 }
-                return (dim_A == dim_B);
-                break;
+                return (dim_A == dim_B) && (kind_A == kind_B);
             }
             case STRUCTURE:
             {
@@ -309,13 +306,12 @@ int type_eq(Type A, Type B)
                     return 0;
                 else
                     return 1;
-                break;
             }
             case FUNCTION:
             {
                 FieldList A_paras = A->u.function.paras;
                 FieldList B_paras = B->u.function.paras;
-                //比较函数的参数数是否相等
+                //比较函数的参数和返回值类型是否相等
                 if ((A->u.function.para_num != B->u.function.para_num) ||
                     type_eq(A->u.function.ret_para, B->u.function.ret_para) == 0)
                     return 0;
@@ -337,7 +333,6 @@ int type_eq(Type A, Type B)
                     return 0;
                 else
                     return 1;
-                break;
             }
             default:
                 printf("No such type!\n");

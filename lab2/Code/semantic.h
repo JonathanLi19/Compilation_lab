@@ -53,4 +53,5 @@ FieldList Dec_struct(struct Node *cur_node, Type cur_type);
 FieldList VarDec(struct Node *cur_node, Type cur_type);
 int ExtDecList(struct Node *cur_node, Type cur_type);
 FieldList DefList_struct(struct Node *cur_node,char* name_ofStruct);
+Type StructSpecifier(struct Node *cur_node);
 #endif
