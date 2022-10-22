@@ -926,7 +926,11 @@ FieldList VarDec(struct Node *cur_node, Type cur_type)
 
     if (strcmp(tmp_node->name, "ID") == 0)
     {
-        tmp_field->type = cur_type;
+        Type tmp_Type_ = (Type)malloc(sizeof(struct Type_));
+        tmp_Type_->kind = cur_type->kind;
+        tmp_Type_->u = cur_type->u;
+        //为了将多个变量的type设置成不同指针
+        tmp_field->type = tmp_Type_;
         tmp_field->name = tmp_node->string_content;
         return tmp_field;
     }
@@ -955,7 +959,12 @@ FieldList VarDec(struct Node *cur_node, Type cur_type)
             tmp_node = tmp_node->child;
         }
         Type temp_type = node_typeList[0];
-        node_typeList[top_count]->u.array.elem = cur_type;
+
+        Type tmp_Type_ = (Type)malloc(sizeof(struct Type_));
+        tmp_Type_->kind = cur_type->kind;
+        tmp_Type_->u = cur_type->u;
+        node_typeList[top_count]->u.array.elem = tmp_Type_;
+
         for (int i = 1; i <= top_count; i++)
         {
             temp_type->u.array.elem = node_typeList[i];

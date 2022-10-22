@@ -120,7 +120,7 @@ void delete_domain_nodes(hash_stack domain)
 
         domain->head = node_del->ctrl_next;
         //这里如果有int i,j;出现那么i和j的type指针是指向同一块内存的，会free两次
-        //free_node(node_del);
+        free_node(node_del);
         free_node(HT_iter);
     }
     if(domain != NULL)
