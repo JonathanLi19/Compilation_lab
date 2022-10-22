@@ -755,25 +755,17 @@ Type Specifier(struct Node *cur_node)
 
 FieldList DefList_struct(struct Node *cur_node,char* name_ofStruct)
 {
-    FieldList result = NULL, now_field = NULL;
-    while (cur_node != NULL)
-    {
-        struct Node *tmp_defnode0 = getchild(cur_node, 0);
-        if (tmp_defnode0 == NULL)
-            break;
-        FieldList tmp_defplus = Def_struct(tmp_defnode0, name_ofStruct);
-        if (result == NULL)
-        {
-            result = tmp_defplus;
-            now_field = result;
-        }
-        else
-        {
-            now_field->tail = tmp_defplus;
-            now_field = now_field->tail;
-        }
-        cur_node = getchild(cur_node, 1);
-    }
+    //DefList -> Def DefList
+    // | (empty)
+    //printf("Deflist_struct\n");
+    struct Node *tmp_defnode0 = getchild(cur_node, 0);
+    if(tmp_defnode0 == NULL)
+        return NULL;
+    FieldList result = Def_struct(tmp_defnode0, name_ofStruct);
+    if(result == NULL)
+        return NULL;
+    result->tail = DefList_struct(getchild(cur_node, 1), name_ofStruct);
+
     return result;
 }
 
@@ -791,14 +783,14 @@ Type StructSpecifier(struct Node *cur_node)
     struct Node *tmp_node01 = getchild(cur_node, 1);
     if (strcmp(tmp_node01->name, "OptTag") == 0) //STRUCT OptTag LC DefList RC
     {
-        struct Node *OptTag_node = getchild(tmp_node01, 0);
-        if (strcmp(OptTag_node->name, "ID") == 0) //OptTag -> ID
+        struct Node *ID_node = getchild(tmp_node01, 0);
+        if (strcmp(ID_node->name, "ID") == 0) //OptTag -> ID
         {
-            char *name_ofStruct = OptTag_node->string_content;
+            char *name_ofStruct = ID_node->string_content;
 
             if (find_symbol(name_ofStruct, depth_) != NULL)
             { //结构体重复，报错16
-                print_error(16, OptTag_node->line_num, name_ofStruct);
+                print_error(16, ID_node->line_num, name_ofStruct);
                 return NULL;
             }
             else
@@ -807,7 +799,10 @@ Type StructSpecifier(struct Node *cur_node)
                 strcpy(type->u.my_struct.name, name_ofStruct); //赋值struct name;用于返回给上层;同时struct name作为hash值将填到struct hash表里面;
                 struct Node *Deflist_node = getchild(cur_node, 3);
                 if (strcmp(Deflist_node->name, "DefList") != 0)
+                {
                     type->u.my_struct.structure = NULL;
+                    return NULL;
+                }
                 else
                 {
                     //DefList -> Def DefList
@@ -865,7 +860,7 @@ FieldList Def_struct(struct Node *cur_node, char *struct_name)
 	DecList -> Dec
 		| Dec COMMA DecList
 	*/
-    printf("OK1\n");
+    //printf("Def_struct\n");
     struct Node *DecListNode = getchild(cur_node, 1);
     Type nowtype = Specifier(getchild(cur_node, 0));
     FieldList res_field = NULL, tmp_field = NULL;
@@ -906,7 +901,6 @@ FieldList Dec_struct(struct Node *cur_node, Type cur_type)
     //Dec -> VarDec
     //| VarDec ASSIGNOP Exp
     // 这里不能出现VarDec ASSIGNOP Exp
-    printf("OK2\n");
     FieldList field = VarDec(getchild(cur_node, 0), cur_type);
     if(field == NULL)
         return NULL;

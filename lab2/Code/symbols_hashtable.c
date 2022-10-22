@@ -80,7 +80,16 @@ ST_node find_symbol(char *name, int depth)
 //释放节点
 void free_node(ST_node del)
 {
-    free(del->type);
+    if(del->type != NULL)
+    {
+        free(del->type);
+        del->type = NULL;
+    }
+    if(del != NULL)
+    {
+        free(del);
+        del = NULL;
+    }
     return;
 }
 
@@ -110,12 +119,15 @@ void delete_domain_nodes(hash_stack domain)
         HT_iter->hash_next = node_del->hash_next;
 
         domain->head = node_del->ctrl_next;
-        node_del = NULL;
-        HT_iter = NULL;
+        //这里如果有int i,j;出现那么i和j的type指针是指向同一块内存的，会free两次
         //free_node(node_del);
-        //free_node(HT_iter);
+        free_node(HT_iter);
     }
-    free(domain);
+    if(domain != NULL)
+    {
+        free(domain);
+        domain = NULL;
+    }
     return;
 }
 
@@ -217,7 +229,10 @@ ST_node find_struct(char *name)
     while (cur)
     {
         if (strcmp(cur->name, name) == 0)
+        {
             ret_node = cur;
+            break;
+        }
         else
             cur = cur->hash_next;
     }
