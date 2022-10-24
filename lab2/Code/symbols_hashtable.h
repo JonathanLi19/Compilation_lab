@@ -6,7 +6,6 @@
 //#include "syntax.y"
 #include <string.h>
 #include <assert.h>
-
 typedef struct Type_* Type;
 typedef struct FieldList_* FieldList;
 typedef struct ST_node_* ST_node;
@@ -18,6 +17,7 @@ void print_error(int err_type, int err_col, char *message);
 ST_node init_symbol(Type type, char *name, int is_define, int depth);
 void insert_symbol(ST_node my_node, hash_stack domain);
 ST_node find_symbol(char *name, int depth);
+ST_node find_symbol_dec(char *name, int depth); //定义的时候只找同一层作用域的，即使外层也有也可定义
 void free_node(ST_node del);
 hash_stack find_domain(int depth);
 void delete_domain_nodes(hash_stack domain);
@@ -30,11 +30,6 @@ ST_node find_struct(char *name);
 int type_eq(Type A, Type B);
 int strong_array_check(Type A, Type B);
 unsigned int hash_pjw(char *name);
-int query_struct(Type *type, char *name);
-int query_symbol_exist_mrk(Type *type, char *name, int *ifdef, int depth, int mrk);
-int query_symbol_exist2(Type *type, char *name, int *ifdef, int depth, int *kind);
-int symbol_Find_mrk(Type *type, char *name, int *ifdef, int depth, int mrk);
-int symbol_Kind_find(Type *type, char *name, int *ifdef, int depth, int *kind);
 
 struct FieldList_
 {

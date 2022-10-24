@@ -4,13 +4,13 @@
 
 struct hash_stack_ global_head[SYMBOL_LEN] = {NULL};
 struct hash_stack_ struct_head[SYMBOL_LEN] = {NULL};
-hash_stack domain_head = NULL; //作用域控制链表;
+extern hash_stack Domain_head; //作用域控制链表;
+extern int depth_;
 func_list func_head = NULL; //函数定义链表,最后遍历检查;
-
 //初始域
 hash_stack ST_init()
 {
-    domain_head = malloc(sizeof(struct hash_stack_));
+    hash_stack domain_head = malloc(sizeof(struct hash_stack_));
     domain_head->next = NULL;
     domain_head->head = NULL;
     return domain_head;
@@ -42,15 +42,24 @@ void insert_symbol(ST_node my_node, hash_stack domain)
             domain->head = my_node;
         else
         {
-            while (cur->ctrl_next != NULL)
+            /*while (cur->ctrl_next != NULL)
                 cur = cur->ctrl_next;
-            cur->ctrl_next = my_node;
+            cur->ctrl_next = my_node;*/
+            my_node->ctrl_next = cur;
+            domain->head = my_node;
         }
         //插入全局符号表
-        cur = global_head[idx].head;
-        if (cur != NULL)
-            my_node->hash_next = cur;
-        global_head[idx].head = my_node;
+        ST_node cur1 = global_head[idx].head;
+        /*if (cur1 != NULL)
+            my_node->hash_next = cur1;
+        global_head[idx].head = my_node;*/
+        if (cur1 == NULL)
+            global_head[idx].head = my_node;
+        else
+        {
+            my_node->hash_next = cur1;
+            global_head[idx].head = my_node;
+        }
     }
     return;
 }
@@ -77,27 +86,63 @@ ST_node find_symbol(char *name, int depth)
     return ret_node;
 }
 
+//定义的时候只找同一层作用域的，即使外层也有也可定义。 但是别忘了还可以找合适的depth中定义的结构体的名字（这个不一定同层！)
+ST_node find_symbol_dec(char *name, int depth)
+{
+    if(find_struct(name) != NULL)
+        return find_struct(name);
+    int idx = hash_pjw(name);
+    //我们这里通过返回一个空节点的方式表明我们无法在符号表中找到该变量名。
+    ST_node cur = global_head[idx].head;
+    ST_node ret_node = NULL;
+    //遍历哈希值为该值的链表，若hash不到则直接返回NULL。
+    int max_depth = 0;
+    while (cur)
+    {
+        if (strcmp(cur->name, name) == 0 && depth == cur->depth)
+        {
+            ret_node = cur;
+            break;
+        }
+        cur = cur->hash_next;
+    }
+    return ret_node;
+}
+
 //释放节点
 void free_node(ST_node del)
 {
+    if(del == NULL)
+        return;
+    assert(del != NULL);
     if(del->type != NULL)
     {
         free(del->type);
         del->type = NULL;
     }
-    if(del != NULL)
+    if(del->ctrl_next != NULL)
     {
-        free(del);
-        del = NULL;
+        //free(del->ctrl_next);
+        del->ctrl_next = NULL;
+        
     }
+    if(del->hash_next != NULL)
+    {
+        //free(del->hash_next);
+        del->hash_next = NULL;
+    }
+
+    free(del);
+    del = NULL;
+
     return;
 }
 
 //由节点深度寻找对应局域符号表头
 hash_stack find_domain(int depth)
 {
-    hash_stack domain_iter = domain_head;
-    for (int i = 0; i < depth; i++)
+    hash_stack domain_iter = Domain_head;
+    for (int i = depth_; i > depth; i--)
         domain_iter = domain_iter->next;
     return domain_iter;
 }
@@ -109,19 +154,23 @@ void delete_domain_nodes(hash_stack domain)
     {
         ST_node node_del = domain->head;
         int idx = hash_pjw(node_del->name);
+        
+        if(node_del == global_head[idx].head)
+        {
+            global_head[idx].head = global_head[idx].head->hash_next;
+        }
+        else
+        {
+            ST_node HT_iter = global_head[idx].head;
+            while (HT_iter->hash_next != node_del)
+                HT_iter = HT_iter->hash_next;
 
-        ST_node HT_iter = (ST_node)malloc(sizeof(struct ST_node_));
-        HT_iter->hash_next = global_head[idx].head;
-
-        while (HT_iter->hash_next != node_del)
-            HT_iter = HT_iter->hash_next;
-
-        HT_iter->hash_next = node_del->hash_next;
-
+            HT_iter->hash_next = node_del->hash_next;
+        }
         domain->head = node_del->ctrl_next;
         //这里如果有int i,j;出现那么i和j的type指针是指向同一块内存的，会free两次
+        //printf("delete %s in depth: %d\n", node_del->name, node_del->depth);
         free_node(node_del);
-        free_node(HT_iter);
     }
     if(domain != NULL)
     {
@@ -131,30 +180,31 @@ void delete_domain_nodes(hash_stack domain)
     return;
 }
 
-//进入域之前进行调用，将新产生的domain加到domain_head的链表头
+//进入域之前进行调用，将新产生的domain加到Domain_head的链表头
 hash_stack enter_domain()
 {
+    //printf("enter\n");
     hash_stack ret = malloc(sizeof(struct hash_stack_));
     ret->head = NULL;
-    ret->next = domain_head;
-    domain_head = ret;
+    ret->next = Domain_head;
+    Domain_head = ret;
     return ret;
 }
-//离开域时调用,先删除domain_head中的第一项，然后进入hash_table删除对应的一系列node
+//离开域时调用,先删除Domain_head中的第一项，然后进入hash_table删除对应的一系列node
 void exit_domain()
 {
-    hash_stack domain_del = domain_head;
+    //printf("exit\n");
+    hash_stack domain_del = Domain_head;
     if (domain_del == NULL)
     {
-        printf("Error, domain_head not exist!");
+        printf("Error, Domain_head not exist!");
         return;
     }
-    domain_head = domain_head->next;
+    Domain_head = Domain_head->next;
     //进入hash_table删除对应的一系列node
     delete_domain_nodes(domain_del);
     return;
 }
-
 //在函数表中添加函数名和函数位置
 void add_func(char *name, int func_lineno)
 {
@@ -171,7 +221,6 @@ void add_func(char *name, int func_lineno)
         cur->next = (func_list)malloc(sizeof(struct func_list_));
         cur = cur->next;
     }
-
     cur->name = name;
     cur->fun_lineno = func_lineno;
     cur->next = NULL;
@@ -188,14 +237,14 @@ void check_func()
         ST_node ret_func = find_symbol(name, 0);
         if (ret_func->is_define != 1)
         {
-            printf("Error type %d at Line %d: Undefined function \"%s\".\n", 18, cur->fun_lineno, cur->name);
+            print_error(18, cur->fun_lineno, cur->name);
         }
         cur = cur->next;
     }
     return;
 }
 
-//向结构体符号表中插入符号，0为正常，1为结构体重定义。
+//向结构体符号表中插入符号
 int insert_struct(Type type, char *name)
 {
     int idx = hash_pjw(name);
@@ -385,71 +434,6 @@ unsigned int hash_pjw(char *name)
     return val;
 }
 
-int symbol_Find_mrk(Type *type, char *name, int *ifdef, int depth, int mrk)
-{
-    int value = hash_pjw(name);
-    if (global_head[value].head == NULL)
-        return -1;
-    else
-    {
-        ST_node tmp_globalSymbol = global_head[value].head;
-        int flag = 0;
-        while (tmp_globalSymbol != NULL)
-        {
-            if(mrk==1){
-                if (strcmp(tmp_globalSymbol->name, name) == 0 && depth >= tmp_globalSymbol->depth)
-                {
-                    *type = tmp_globalSymbol->type;
-                    *ifdef = tmp_globalSymbol->is_define;
-                    flag = 1;
-                    return 0;
-                }
-            }else if(mrk==0){
-                if (strcmp(tmp_globalSymbol->name, name) == 0 && depth == tmp_globalSymbol->depth)
-                {
-                    *type = tmp_globalSymbol->type;
-                    *ifdef = tmp_globalSymbol->is_define;
-                    flag = 1;
-                    return 0;
-                }
-            }
-            tmp_globalSymbol = tmp_globalSymbol->hash_next;
-            if (tmp_globalSymbol == NULL)
-                break;
-        }
-        if (flag == 0)
-            return -1;
-    }
-}
-
-int symbol_Kind_find(Type *type, char *name, int *ifdef, int depth, int *kind)
-{
-    int value = hash_pjw(name);
-    if (global_head[value].head == NULL)
-        return -1;
-    else
-    {
-        ST_node tmp_globalSym = global_head[value].head;
-        int flag = 0;
-        while (tmp_globalSym != NULL)
-        {
-            if (strcmp(tmp_globalSym->name, name) == 0 && depth >= tmp_globalSym->depth)
-            {
-                *type = tmp_globalSym->type;
-                *ifdef = tmp_globalSym->is_define;
-                *kind = tmp_globalSym->kind;
-                flag = 1;
-                return 0;
-            }
-            tmp_globalSym = tmp_globalSym->hash_next;
-            if (tmp_globalSym == NULL)
-                break;
-        }
-        if (flag == 0)
-            return -1;
-    }
-}
-
 void print_error(int err_type, int err_col, char *message)
 {
     printf("Error type %d at Line %d: ", err_type, err_col);
@@ -527,7 +511,7 @@ void print_error(int err_type, int err_col, char *message)
     }
     case (15):
     {
-        printf("Redefined field \"%s\".\n", message);
+        printf("Redefined or initialized field \"%s\" in struct.\n", message);
         break;
     }
     case (16):

@@ -40,11 +40,11 @@ struct Node* getchild(struct Node* cur,int depth)
 int depth_ = 0;
 int num_struct_without_name = 0;
 hash_stack Domain_head = NULL;//作用域控制栈
-
 int Program(struct Node *cur_node)
 {
     //Program -> ExfDefList
     Domain_head = ST_init();
+    //assert(find_domain(0) == Domain_head);
     ExtDefList(getchild(cur_node, 0));
     check_func();
     return 0;
@@ -74,7 +74,8 @@ int ExtDef(struct Node *cur_node)
     struct Node *tmp_node2 = getchild(cur_node, 2);
     if (getchild(cur_node, 0) != NULL)
         tmp_type = Specifier(getchild(cur_node, 0));
-
+    if(tmp_type == NULL)
+        return NULL;
     if (tmp_node2 != NULL)
     {
         if (tmp_node1 != NULL && strcmp(tmp_node1->name, "ExtDecList") == 0)
@@ -86,19 +87,31 @@ int ExtDef(struct Node *cur_node)
             struct Node *FunDec_node = tmp_node1;
             if (strcmp(tmp_node2->name, "SEMI") == 0)
             {
-                hash_stack new_hashstack = enter_domain(); //我觉得不用enter
-                FunDec(FunDec_node, 0, tmp_type, new_hashstack);
-                exit_domain();
+                //hash_stack new_hashstack = enter_domain();
+                FunDec(FunDec_node, 0, tmp_type, Domain_head);
+                //exit_domain();
             }
             else
             {
-                hash_stack new_hashstack = enter_domain();
-                FunDec(FunDec_node, 1, tmp_type, new_hashstack);
-                depth_++;
-                struct Node *CompSt_node = tmp_node2;
-                CompSt(CompSt_node, new_hashstack, tmp_type);
-                depth_--;
-                exit_domain();
+                int return_depth = FunDec(FunDec_node, 1, tmp_type, Domain_head);
+                if(return_depth == -1) // 形参没有enter domain
+                {
+                    hash_stack new_hashstack = enter_domain();
+                    depth_++;
+                    struct Node *CompSt_node = tmp_node2;
+                    CompSt(CompSt_node, new_hashstack, tmp_type);
+                    exit_domain();
+                    depth_--;
+                    //assert(find_symbol("i", 0) != NULL);
+                }
+                else
+                {
+                    depth_ = return_depth;
+                    struct Node *CompSt_node = tmp_node2;
+                    CompSt(CompSt_node, find_domain(depth_), tmp_type);
+                    depth_--;
+                    exit_domain();
+                }
             }
         }
     }
@@ -117,12 +130,13 @@ int CompSt(struct Node *cur_node, hash_stack cur_stack, Type cur_type)
         DefList(tmp_node1, cur_stack);
         struct Node *StmtList_node = getchild(cur_node, 2);
 
-        if (strcmp(StmtList_node->name, "StmtList") == 0)
+        if (StmtList_node != NULL && strcmp(StmtList_node->name, "StmtList") == 0)
             StmtList(StmtList_node, cur_stack, cur_type);
     }
     else if (strcmp(tmp_node1->name, "StmtList") == 0)
+    {
         StmtList(tmp_node1, cur_stack, cur_type);
-
+    }
     return 0;
 }
 
@@ -130,8 +144,8 @@ int StmtList(struct Node *cur_node, hash_stack cur_stack, Type cur_type)
 {
     // StmtList -> Stmt StmtList
     // | 空
-    //struct Node *Stmt_node = getchild(cur_node, 0);
-
+    if(getchild(cur_node, 0) == NULL)
+        return 0;
     struct Node *tmp_node1 = getchild(cur_node, 1);
     Stmt(getchild(cur_node, 0), cur_stack, cur_type);
     if (tmp_node1 != NULL)
@@ -148,6 +162,8 @@ int Stmt(struct Node *cur_node, hash_stack cur_stack, Type cur_type)
     // | WHILE LP Exp RP Stmt
 
     struct Node *tmp_node0 = getchild(cur_node, 0);
+    if(tmp_node0 == NULL)
+        return 0;
     if (strcmp(tmp_node0->name, "Exp") == 0) // Stmt -> Exp SEMI
     {
         Type tmp_exptype = Exp(tmp_node0);
@@ -181,7 +197,10 @@ int Stmt(struct Node *cur_node, hash_stack cur_stack, Type cur_type)
         if (While_type != NULL)
         {
             if (While_type->kind != BASIC || While_type->u.basic != 0)
+            {
+                printf("OK1\n");
                 print_error(7, cur_node->line_num, NULL); //while条件非int，操作类型不匹配，报错7
+            }
         }
         Stmt(Stmt_node4, cur_stack, cur_type);
     }
@@ -195,7 +214,10 @@ int Stmt(struct Node *cur_node, hash_stack cur_stack, Type cur_type)
         if (If_type2 != NULL)
         {
             if (If_type2->kind != BASIC || If_type2->u.basic != 0)
-                print_error(7, cur_node->line_num, NULL); //if条件非int，擦做类型不匹配，报错7
+            {
+                printf("OK2\n");
+                print_error(7, cur_node->line_num, NULL); //if条件非int，类型不匹配，报错7
+            }
         }
         if (tmp_node5 == NULL) // | IF LP Exp RP Stmt
         {
@@ -228,6 +250,8 @@ int Def(struct Node *cur_node, hash_stack cur_stack)
     //	Def -> Specifier DecList SEMI
 
     Type Specifier_type = Specifier(getchild(cur_node, 0));
+    if(Specifier_type == NULL)
+        return 0;
     DecList(getchild(cur_node, 1), cur_stack, Specifier_type);
     return 0;
 }
@@ -239,11 +263,8 @@ int DecList(struct Node *cur_node, hash_stack cur_stack, Type cur_type)
 
     Dec(getchild(cur_node, 0), cur_stack, cur_type);
 
-    if (getchild(cur_node, 1) != NULL)
-    {
-        if (getchild(cur_node, 2) != NULL)
-            DecList(getchild(cur_node, 2), cur_stack, cur_type);
-    }
+    if (getchild(cur_node, 2) != NULL)
+        DecList(getchild(cur_node, 2), cur_stack, cur_type);
 
     return 0;
 }
@@ -253,7 +274,9 @@ int Dec(struct Node *cur_node, hash_stack cur_stack, Type cur_type)
     // 	Dec -> VarDec
     // | VarDec ASSIGNOP Exp
     FieldList VarDec_field = VarDec(getchild(cur_node, 0), cur_type);
-    ST_node found = find_symbol(VarDec_field->name, depth_);
+    if(VarDec_field == NULL)
+        return 0;
+    ST_node found = find_symbol_dec(VarDec_field->name, depth_);
     if (found != NULL) //符号已存在，重复定义，报错3
     {
         print_error(3, cur_node->line_num, VarDec_field->name);
@@ -266,17 +289,17 @@ int Dec(struct Node *cur_node, hash_stack cur_stack, Type cur_type)
     }
     else // | VarDec ASSIGNOP Exp
     {
-        ST_node insert_node = new_STnode(VARIABLE, VarDec_field->type, VarDec_field->name, 1, depth_);
-        insert_symbol(insert_node, cur_stack); //插入符号
-
         Type exp_type = Exp(getchild(cur_node, 2));
         if (exp_type != NULL)
         {
             if (type_eq(VarDec_field->type, exp_type) == 0) //赋值号左右类型不匹配，报错5
             {
                 print_error(5, cur_node->line_num, NULL);
+                return 0;
             }
         }
+        ST_node insert_node = new_STnode(VARIABLE, VarDec_field->type, VarDec_field->name, 1, depth_);
+        insert_symbol(insert_node, cur_stack); //插入符号
     }
     return 0;
 }
@@ -306,6 +329,8 @@ Type Exp(struct Node *cur_node)
         return NULL;
     Type result = NULL;
     struct Node *tmp_node0 = getchild(cur_node, 0);
+    if(tmp_node0 == NULL)
+        return NULL;
     struct Node *tmp_node1 = getchild(cur_node, 1);
     //左值: ID,EXP DOT ID(结构体) Exp LB Exp RB (数组)
 
@@ -367,7 +392,7 @@ Type Exp(struct Node *cur_node)
         if (strcmp(tmp_node0->name, "ID") == 0)
         {
             ST_node found = find_symbol(tmp_node0->string_content, depth_);
-            if (found != NULL && found->is_define == 1 && found->kind == VARIABLE)
+            if (found != NULL && found->is_define == 1)
             { //找到定义
                 result = found->type;
                 return result;
@@ -438,12 +463,20 @@ Type Exp(struct Node *cur_node)
                     int exp_eqornot = type_eq(exp1type, exp2type);
                     if (exp_eqornot == 0) //操作数类型不匹配
                     {
+                        printf("OOps!\n");
                         print_error(7, cur_node->line_num, NULL);
                         return NULL;
                     }
                     else
                     {
-                        result = exp1type;
+                        if(strcmp(getchild(cur_node, 1)->name, "RELOP") == 0) //如果是判断条件就返回整数type
+                        {
+                            result = (Type)(malloc(sizeof(struct Type_)));
+                            result->kind = BASIC;
+                            result->u.basic = 0;
+                        }
+                        else                       
+                            result = exp1type;
                         return result;
                     }
                 }
@@ -467,10 +500,9 @@ Type Exp(struct Node *cur_node)
                         char *field_name = (char *)(malloc(sizeof(char) * (1 + strlen(node2_name) + strlen(exp_nodetype->u.my_struct.name))));
                         strcpy(field_name, node2_name);
                         strcat(field_name, exp_nodetype->u.my_struct.name);
-                        Type find_Type = (Type)(malloc(sizeof(struct Type_)));
                         if (find_struct(field_name) != NULL)
                         {
-                            result = find_Type;
+                            result = find_struct(field_name)->type;
                             return result;
                         }
                         else
@@ -523,12 +555,16 @@ Type Exp(struct Node *cur_node)
                 return NULL;
             }
             Type tmp_findtype = found->type;
-            result = tmp_findtype->u.function.ret_para;
+            if(tmp_findtype == NULL)
+                return NULL;
             if (found->type->kind != FUNCTION)
             { //报错11
                 print_error(11, cur_node->line_num, name_function);
                 return NULL;
             }
+            
+            result = tmp_findtype->u.function.ret_para;
+            
             if (strcmp(tmp_nodee2->name, "Args") == 0)
             {
                 int args_num = Arg(tmp_nodee2, tmp_findtype->u.function.paras);
@@ -564,22 +600,22 @@ int Arg(struct Node *cur_node, FieldList paras)
     int args_num = 0;
     if (paras == NULL)
     { //参数NULL，报错9
-
         print_error(9, cur_node->line_num, NULL);
         return -1;
     }
     if (paras->type == NULL) //参数类型NULL，报错9
-    {
+    {   
         print_error(9, cur_node->line_num, NULL);
         return -1;
     }
     Type exp_type = Exp(getchild(cur_node, 0));
+    
     if(exp_type == NULL)
         return -1;
-
     int result = type_eq(exp_type, paras->type);
     if (result == 0)
     { //参数类型不匹配，报错9
+
         print_error(9, cur_node->line_num, NULL);
         return -1;
     }
@@ -609,21 +645,16 @@ int FunDec(struct Node *cur_node, const int is_define, const Type cur_type, hash
     //FunDec -> ID LP VarList RP
     //| ID LP RP
     struct Node *tmp_node0 = getchild(cur_node, 0);
+    if(tmp_node0 == NULL)
+        return -1;
     char *name_function = tmp_node0->string_content;
 
     ST_node ret_node = find_symbol(name_function, depth_);
 
-    int find_define = 0, is_retnode = -1;
-    Type find_type = NULL;
-    if (ret_node != NULL)
-    {
-        is_retnode = 0;
-        find_define = ret_node->is_define;
-        find_type = ret_node->type;
-    }
     struct Node *tmp_node2 = getchild(cur_node, 2);
     Type newfunc_type = (Type)(malloc(sizeof(struct Type_)));
-    
+
+    int varlist_enter_depth = -1; //形参是否已经enter过domain，如果没有是-1，否则是对应的depth_
     if (strcmp(tmp_node2->name, "VarList") != 0)
     {
         newfunc_type->u.function.para_num = 0;
@@ -633,9 +664,12 @@ int FunDec(struct Node *cur_node, const int is_define, const Type cur_type, hash
     {
         FieldList new_field2 = NULL;
         struct Node *Varlistnode = tmp_node2;
+        hash_stack newdomain = enter_domain();
         depth_++;
-        new_field2 = VarList(Varlistnode, cur_stack);
+        varlist_enter_depth = depth_;
+        new_field2 = VarList(Varlistnode, newdomain);
         depth_--;
+
         int cnt = 0;
         FieldList temp = new_field2;
         while (temp != NULL)
@@ -649,27 +683,26 @@ int FunDec(struct Node *cur_node, const int is_define, const Type cur_type, hash
     }
     newfunc_type->kind = FUNCTION;
     newfunc_type->u.function.ret_para = cur_type;
-
-    if (is_retnode == 0)
+    if (ret_node != NULL)
     {
         if (is_define == 1)
         {
-            if (find_define == 1)
+            if (ret_node->is_define == 1)
             { //报错4,重复定义
                 print_error(4, cur_node->line_num, tmp_node0->string_content);
             }
-            else if (type_eq(find_type, newfunc_type) == 0)
+            else if (type_eq(ret_node->type, newfunc_type) == 0)
             {
                 print_error(19, cur_node->line_num, tmp_node0->string_content);
             }
             else
             {
-                insert_symbol(new_STnode(FUNCTION_NAME, newfunc_type, name_function, is_define, depth_), find_domain(depth_));
+                ret_node->is_define = 1;
             }
         }
         else
         {
-            if (type_eq(find_type, newfunc_type) == 0)
+            if (type_eq(ret_node->type, newfunc_type) == 0)
             {
                 print_error(19, cur_node->line_num, tmp_node0->string_content);
             }
@@ -677,20 +710,26 @@ int FunDec(struct Node *cur_node, const int is_define, const Type cur_type, hash
     }
     else
     {
-        insert_symbol(new_STnode(FUNCTION_NAME, newfunc_type, name_function, is_define, depth_), find_domain(depth_));
+        //printf("insert %s to %d\n",name_function,depth_);
+        insert_symbol(new_STnode(FUNCTION_NAME, newfunc_type, name_function, is_define, depth_), cur_stack);
         if (is_define == 0)//当只有声明的时候，加入一个链表中，最后检查这个声明是否有对应的函数定义
         {
             add_func(name_function, cur_node->line_num);
         }
     }
+    return varlist_enter_depth;
 }
 
 FieldList VarList(struct Node *cur_node, hash_stack cur_stack)
 {
     //  VarList -> ParamDec COMMA VarList
     //| ParamDec;
+    if(cur_node == NULL)
+        return NULL;
     FieldList result = ParamDec(getchild(cur_node, 0));
-    Type vartype_1 = (Type)(malloc(sizeof(struct Type_)));
+
+    if(result == NULL)
+        return NULL;
 
     ST_node found = find_symbol(result->name, depth_);
     if (found != NULL && found->kind == STRUCT_NAME) //变量与已定义结构体重复，报错3
@@ -698,8 +737,17 @@ FieldList VarList(struct Node *cur_node, hash_stack cur_stack)
         print_error(3, cur_node->line_num, result->name);
         return NULL;
     }
-
-    ST_node newvar_node = new_STnode(VARIABLE, result->type, result->name, 1, depth_);
+    //为了防止形参的type在exit_domain的时候被删除，这里传的是备份，result->type不会被删除，这样后来调用函数还可以访问到
+    Type copy_type = NULL;
+    if(result->type == NULL)
+        copy_type = NULL;
+    else
+    {
+        copy_type = (Type)(malloc(sizeof(struct Type_)));
+        copy_type->kind = result->type->kind;
+        copy_type->u = result->type->u;
+    }
+    ST_node newvar_node = new_STnode(result->type->kind, copy_type, result->name, 1, depth_);
     insert_symbol(newvar_node, cur_stack);
 
     FieldList res_field = result;
@@ -719,7 +767,8 @@ FieldList VarList(struct Node *cur_node, hash_stack cur_stack)
 FieldList ParamDec(struct Node *cur_node)
 {
     //ParamDec -> Specifier VarDec
-    FieldList result = VarDec(getchild(cur_node, 1), Specifier(getchild(cur_node, 0)));
+    Type type = Specifier(getchild(cur_node, 0));
+    FieldList result = VarDec(getchild(cur_node, 1), type);
     return result;
 }
 
@@ -807,7 +856,11 @@ Type StructSpecifier(struct Node *cur_node)
                 {
                     //DefList -> Def DefList
                     // | (empty)
+                    depth_++;
                     FieldList result = DefList_struct(Deflist_node, name_ofStruct);
+                    depth_--;
+                    if(result == NULL)
+                        return NULL;
                     type->u.my_struct.structure = result;
                 }
             }
@@ -831,7 +884,9 @@ Type StructSpecifier(struct Node *cur_node)
             return NULL;
         }
         else
+        {
             return find_symbol(id_name,depth_)->type;
+        }
     }
     else if (strcmp(tmp_node01->name, "LC") == 0) //OptTag -> (empty)
     {
@@ -842,6 +897,8 @@ Type StructSpecifier(struct Node *cur_node)
         strcpy(type->u.my_struct.name, name_ofStruct);
 
         struct Node *DefList_node = getchild(cur_node, 2);
+        if(DefList_node == NULL)
+            return NULL;
         if (strcmp(DefList_node->name, "DefList") != 0)
             type->u.my_struct.structure = NULL;
         else
@@ -863,12 +920,16 @@ FieldList Def_struct(struct Node *cur_node, char *struct_name)
     //printf("Def_struct\n");
     struct Node *DecListNode = getchild(cur_node, 1);
     Type nowtype = Specifier(getchild(cur_node, 0));
+    if(nowtype == NULL)
+        return NULL;
     FieldList res_field = NULL, tmp_field = NULL;
 
     while (DecListNode != NULL)
     {
         struct Node *Dec_node = getchild(DecListNode, 0);
         FieldList Dec_field = Dec_struct(Dec_node, nowtype);
+        if(Dec_field == NULL)
+            return NULL;
         char *Dec_name = (char *)malloc(1 + strlen(struct_name) + strlen(Dec_field->name));
         strcpy(Dec_name, Dec_field->name);
         strcat(Dec_name, struct_name);
@@ -879,8 +940,10 @@ FieldList Def_struct(struct Node *cur_node, char *struct_name)
             return NULL;
         }
         else
+        {
             insert_struct(Dec_field->type, Dec_name);
-
+            insert_struct(NULL, struct_name); // 将结构体名字也插入，方便定义变量的时候查找
+        }
         if (res_field == NULL)
         {
             res_field = Dec_field;
@@ -901,15 +964,15 @@ FieldList Dec_struct(struct Node *cur_node, Type cur_type)
     //Dec -> VarDec
     //| VarDec ASSIGNOP Exp
     // 这里不能出现VarDec ASSIGNOP Exp
-    FieldList field = VarDec(getchild(cur_node, 0), cur_type);
-    if(field == NULL)
+    FieldList VarDec_field = VarDec(getchild(cur_node, 0), cur_type);
+    if(VarDec_field == NULL)
         return NULL;
     if (getchild(cur_node, 1) != NULL) //定义是不能初始化，报错15
     {
-        print_error(15, cur_node->line_num, field->name);
+        print_error(15, cur_node->line_num, VarDec_field->name);
         return NULL;
     }
-    return field;
+    return VarDec_field;
 }
 
 FieldList VarDec(struct Node *cur_node, Type cur_type)
@@ -918,7 +981,6 @@ FieldList VarDec(struct Node *cur_node, Type cur_type)
     /*	VarDec -> ID
 	| VarDec LB INT RB
 	*/
-
     FieldList tmp_field = (FieldList)(malloc(sizeof(struct FieldList_)));
     tmp_field->tail = NULL;
 
@@ -926,11 +988,10 @@ FieldList VarDec(struct Node *cur_node, Type cur_type)
 
     if (strcmp(tmp_node->name, "ID") == 0)
     {
-        Type tmp_Type_ = (Type)malloc(sizeof(struct Type_));
-        tmp_Type_->kind = cur_type->kind;
-        tmp_Type_->u = cur_type->u;
-        //为了将多个变量的type设置成不同指针
-        tmp_field->type = tmp_Type_;
+        Type temp_type_ = (Type)malloc(sizeof(struct Type_));
+        temp_type_->kind = cur_type->kind;
+        temp_type_->u = cur_type->u;
+        tmp_field->type = temp_type_;
         tmp_field->name = tmp_node->string_content;
         return tmp_field;
     }
@@ -944,6 +1005,7 @@ FieldList VarDec(struct Node *cur_node, Type cur_type)
         }
         struct Type_ **node_typeList = (struct Type_ **)malloc(sizeof(struct Type_ **) * (num_cnt + 2));
         tmp_field->name = tmp_node->string_content; // 数组的ID
+
         tmp_node = getchild(cur_node, 0);
         struct Node *INT_node1 = NULL;
         num_cnt--;
@@ -959,18 +1021,16 @@ FieldList VarDec(struct Node *cur_node, Type cur_type)
             tmp_node = tmp_node->child;
         }
         Type temp_type = node_typeList[0];
-
         Type tmp_Type_ = (Type)malloc(sizeof(struct Type_));
         tmp_Type_->kind = cur_type->kind;
         tmp_Type_->u = cur_type->u;
         node_typeList[top_count]->u.array.elem = tmp_Type_;
-
         for (int i = 1; i <= top_count; i++)
         {
             temp_type->u.array.elem = node_typeList[i];
             temp_type = temp_type->u.array.elem;
         }
-        tmp_field->type = temp_type;
+        tmp_field->type = node_typeList[0];
         return tmp_field;
     }
 }
@@ -981,8 +1041,8 @@ int ExtDecList(struct Node *cur_node, Type cur_type)
     | VarDec COMMA ExtDecList
     */
     FieldList VarDec_field = VarDec(getchild(cur_node, 0), cur_type);
-    Type tmp_type = (Type)malloc(sizeof(struct Type_));
-    int tmp_isdefine;
+    if(VarDec_field == NULL)
+        return 0;
 
     if (find_symbol(VarDec_field->name, depth_) != NULL) //变量重复定义，报错3
     {
@@ -991,7 +1051,15 @@ int ExtDecList(struct Node *cur_node, Type cur_type)
     }
     else
     {   //没出错就插入符号表
-        ST_node Insert_node = new_STnode(VARIABLE, VarDec_field->type, VarDec_field->name, 1, depth_);
+        ST_node Insert_node = NULL;
+        if(VarDec_field->type->kind == ARRAY)
+        {
+            Insert_node = new_STnode(STRUCT_NAME, VarDec_field->type, VarDec_field->name, 1, depth_);
+        }
+        else
+        {
+            Insert_node = new_STnode(VARIABLE, VarDec_field->type, VarDec_field->name, 1, depth_);
+        }
         insert_symbol(Insert_node, find_domain(depth_));
     }
 
