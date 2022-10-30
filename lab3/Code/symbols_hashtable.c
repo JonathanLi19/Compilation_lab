@@ -21,7 +21,7 @@ ST_node init_symbol(Type type, char *name, int is_define, int depth)
 {
     ST_node my_node = (ST_node)malloc(sizeof(struct ST_node_));
     my_node->type = type;
-    strcpy(my_node->name, name);
+    my_node->name = name;
     my_node->depth = depth;
     my_node->is_define = is_define;
     return my_node;
@@ -193,7 +193,7 @@ hash_stack enter_domain()
 //离开域时调用,先删除Domain_head中的第一项，然后进入hash_table删除对应的一系列node
 void exit_domain()
 {
-    //printf("exit\n");
+    return;
     hash_stack domain_del = Domain_head;
     if (domain_del == NULL)
     {

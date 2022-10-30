@@ -89,6 +89,8 @@ struct ST_node_
     ST_node hash_next; //在hash中同一个值的下一个; -- 实验指导中图一的实线
     //控制域链表
     ST_node ctrl_next; //用来控制作用域的,主要是退出compst等的时候删除相应的元素,初始化为NULL;-- 也就是实验指导中图一的虚线
+    int var_no;
+    int ifaddress;
 };
 
 struct hash_stack_

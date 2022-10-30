@@ -23,7 +23,7 @@ int main(int argc, char** argv)
     if (no_error)
     {
         Program(Root);
-        start_gen(Root,file_2);
+        translate_start(Root, file_2);
     }
     return 0;
 }

@@ -1,19 +1,21 @@
 #include "semantic.h"
-
+#include <stdio.h>
+#include <assert.h>
+#include <stdarg.h>
 //操作数
 typedef struct Operand_* Operand;
 struct Operand_{
 	enum { 
-		VARIABLE, //变量
-		CONSTANT, //常量
-		FUNCTION, //函数
-		TEMPVAR,//暂时变量
-		LABEL//标号数
+		VARIABLE_OPERAND, //变量
+		CONSTANT_OPERAND, //常量
+		FUNCTION_OPERAND, //函数
+		TEMP_OPERAND,//暂时变量
+		LABEL_OPERAND//标号数
 		} kind;
 	enum{
-		ADDRESS,
-		VAR
-	} address;//为地址准备
+		VAL,
+		ADDRESS
+	} type;//为地址准备
 	char *varName;//变量名
 	char *funcName;//函数名
 	int var_no;
@@ -23,7 +25,7 @@ struct Operand_{
 struct InterCode
 {
 	enum { 
-		FUNCTION,
+		FUNCTION_INTERCODE,
 		PARAM,
 		RETURN,
 		LABEL,
@@ -52,12 +54,30 @@ struct InterCode
 };
 
 typedef struct InterCodes_* InterCodes;
-struct InterCodes_
-{//双向链表
+struct InterCodes_{//双向链表
 	struct InterCode code;
 	InterCodes prev;
 	InterCodes next;
 };
-
-int start_gen(struct Node *cur, FILE *fp);
-void Program_gen(struct Node *cur);
+void Link_Insert(InterCodes cur);
+void newIntercode(int kind, ...);
+void printOP(Operand op, FILE *file);
+void printIntercode(FILE *file);
+Operand createOP(int kind, int address, ...);
+int typeSize(Type cur);
+void translate_start(struct Node* cur, FILE *fp);
+void translate_Program(struct Node *cur);
+void translate_ExtDefList(struct Node *cur);
+void translate_ExtDef(struct Node *cur);
+void translate_FunDec(struct Node *cur);
+void translate_CompSt(struct Node *cur);
+void translate_StmtList(struct Node *cur);
+int translate_Stmt(struct Node *cur);
+void translate_DefList(struct Node *cur);
+void translate_Def(struct Node *cur);
+void translate_DecList(struct Node *cur);
+void translate_Dec(struct Node *cur);
+Operand translate_VarDec(struct Node *cur);
+void translate_Arg(struct Node *cur, FieldList para);
+Operand translate_Exp(struct Node *cur);
+void translate_Cond(struct Node* cur,Operand label_true,Operand label_false);

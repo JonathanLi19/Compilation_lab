@@ -1,4 +1,9 @@
 #include "semantic.h"
+
+int depth_ = 0;
+int num_struct_without_name = 0;
+hash_stack Domain_head = NULL;//作用域控制栈
+
 //创建
 ST_node new_STnode(int kind, Type type, char *name, int is_define, int depth)
 {
@@ -37,14 +42,48 @@ struct Node* getchild(struct Node* cur,int depth)
 
 }
 
-int depth_ = 0;
-int num_struct_without_name = 0;
-hash_stack Domain_head = NULL;//作用域控制栈
+void insert_read_write()
+{
+    Type int_type = (Type)malloc(sizeof(struct Type_));
+    int_type->kind = BASIC;
+    int_type->u.basic = 0;
+
+    Type read_type = (Type)malloc(sizeof(struct Type_));
+    read_type->kind = FUNCTION;
+    read_type->u.function.para_num = 0;
+    read_type->u.function.paras = NULL;
+    read_type->u.function.ret_para = int_type;
+    ST_node read_node = init_symbol(read_type, "read", 1, 0);
+    insert_symbol(read_node, Domain_head);
+
+    Type int_type1 = (Type)malloc(sizeof(struct Type_));
+    int_type1->kind = BASIC;
+    int_type1->u.basic = 0;
+
+    Type write_type = (Type)malloc(sizeof(struct Type_));
+    write_type->kind = FUNCTION;
+    write_type->u.function.para_num = 1;
+
+    Type int_type2 = (Type)malloc(sizeof(struct Type_));
+    int_type2->kind = BASIC;
+    int_type2->u.basic = 0;
+    FieldList paras = (FieldList)malloc(sizeof(struct FieldList_));
+    paras->name = "int";
+    paras->tail = NULL;
+    paras->type = int_type2;
+
+    write_type->u.function.paras = paras;
+    write_type->u.function.ret_para = int_type1;
+    ST_node write_node = init_symbol(write_type, "write", 1, 0);
+    insert_symbol(write_node, Domain_head);
+}
+
 int Program(struct Node *cur_node)
 {
     //Program -> ExfDefList
     Domain_head = ST_init();
-    //assert(find_domain(0) == Domain_head);
+    
+    insert_read_write(); //为了生成中间代码
     ExtDefList(getchild(cur_node, 0));
     check_func();
     return 0;
@@ -108,6 +147,7 @@ int ExtDef(struct Node *cur_node)
                 {
                     depth_ = return_depth;
                     struct Node *CompSt_node = tmp_node2;
+                    assert(find_domain(depth_) == Domain_head);
                     CompSt(CompSt_node, find_domain(depth_), tmp_type);
                     depth_--;
                     exit_domain();
@@ -463,7 +503,6 @@ Type Exp(struct Node *cur_node)
                     int exp_eqornot = type_eq(exp1type, exp2type);
                     if (exp_eqornot == 0) //操作数类型不匹配
                     {
-                        printf("OOps!\n");
                         print_error(7, cur_node->line_num, NULL);
                         return NULL;
                     }
@@ -864,6 +903,7 @@ Type StructSpecifier(struct Node *cur_node)
                     type->u.my_struct.structure = result;
                 }
             }
+            assert(find_domain(depth_) == Domain_head);
             insert_symbol(new_STnode(STRUCT_NAME, type, name_ofStruct, 1, depth_), find_domain(depth_));
             return type;
         }
@@ -1060,6 +1100,7 @@ int ExtDecList(struct Node *cur_node, Type cur_type)
         {
             Insert_node = new_STnode(VARIABLE, VarDec_field->type, VarDec_field->name, 1, depth_);
         }
+        assert(find_domain(depth_) == Domain_head);
         insert_symbol(Insert_node, find_domain(depth_));
     }
 

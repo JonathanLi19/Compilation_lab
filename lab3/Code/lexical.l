@@ -55,7 +55,7 @@ MULTI_LINE_COMMENT \/\*[\/]*([^\*\/][\/]*|[\*]|[^\*\/])*\*\/
 {FLOAT}	    {add_lexnode("FLOAT",LEX_FLOAT);sscanf(yytext,"%f",&yylval.node->float_content);return FLOAT;}
 ";"	        {add_lexnode("SEMI",OTHERS);return SEMI;}
 ","	        {add_lexnode("COMMA",OTHERS);return COMMA;}
-{RELOP}	    {add_lexnode("RELOP",OTHERS);return RELOP;}
+{RELOP}	    {add_lexnode("RELOP",OTHERS);strcpy(yylval.node->string_content,yytext);return RELOP;}
 {TYPE}      {add_lexnode("TYPE",LEX_TYPE);strcpy(yylval.node->string_content,yytext);return TYPE;}
 "="	        {add_lexnode("ASSIGNOP",OTHERS);return ASSIGNOP;}
 "+"	        {add_lexnode("PLUS",OTHERS);return PLUS;}
