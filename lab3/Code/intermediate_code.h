@@ -14,12 +14,14 @@ struct Operand_{
 		} kind;
 	enum{
 		VAL,
-		ADDRESS
+		ADDRESS_STAR, //*
+		ADDRESS_AND //&
 	} type;//为地址准备
 	char *varName;//变量名
 	char *funcName;//函数名
 	int var_no;
     int value;
+	int depth;
 };
 
 struct InterCode
@@ -79,5 +81,5 @@ void translate_DecList(struct Node *cur);
 void translate_Dec(struct Node *cur);
 Operand translate_VarDec(struct Node *cur);
 void translate_Arg(struct Node *cur, FieldList para);
-Operand translate_Exp(struct Node *cur);
+Operand translate_Exp(struct Node *cur, int isleft);
 void translate_Cond(struct Node* cur,Operand label_true,Operand label_false);

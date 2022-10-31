@@ -151,6 +151,7 @@ int ExtDef(struct Node *cur_node)
                     CompSt(CompSt_node, find_domain(depth_), tmp_type);
                     depth_--;
                     exit_domain();
+                    
                 }
             }
         }
@@ -718,7 +719,7 @@ int FunDec(struct Node *cur_node, const int is_define, const Type cur_type, hash
         }
         newfunc_type->u.function.para_num = cnt;
         newfunc_type->u.function.paras = new_field2;
-
+        
     }
     newfunc_type->kind = FUNCTION;
     newfunc_type->u.function.ret_para = cur_type;

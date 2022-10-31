@@ -924,7 +924,7 @@ YY_RULE_SETUP
 case 11:
 YY_RULE_SETUP
 #line 58 "./lexical.l"
-{add_lexnode("RELOP",OTHERS);strcpy(yylval.node->string_content,yytext);return RELOP;}
+{add_lexnode("RELOP",OTHERS);return RELOP;}
 	YY_BREAK
 case 12:
 YY_RULE_SETUP

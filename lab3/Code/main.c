@@ -3,6 +3,7 @@
 extern int syserr, myerr, no_error;
 extern struct Node* Root;
 void tree_search(struct Node* root,int depth);
+extern int depth_;
 int main(int argc, char** argv)
 {
     if (argc <= 1) return 1;
@@ -23,6 +24,7 @@ int main(int argc, char** argv)
     if (no_error)
     {
         Program(Root);
+        depth_ = __INT_MAX__;
         translate_start(Root, file_2);
     }
     return 0;

@@ -2,6 +2,33 @@
 int varCount = 0, tmpCount = 0, labelCount = 0;
 InterCodes head_code = NULL, tail_code = NULL;
 
+//复制操作（有时候一些操作数被加入intercode之后，他们的type会在后面发生改变，因此要用这个函数保存）
+Operand copyOP(Operand op)
+{
+    Operand ans = (Operand)malloc(sizeof(struct Operand_));
+    ans->kind = op->kind;
+    ans->type = ans->type;
+    ans->varName = op->varName;
+    ans->var_no = op->var_no;
+    ans->funcName = op->funcName;
+    ans->value = op->value;
+    ans->depth = op->depth;
+    return ans;
+}
+
+int getarraydepth(ST_node arr_node)
+{
+    int cnt = 0;
+    Type temp = arr_node->type;
+
+    while (temp->kind == ARRAY)
+    {
+        cnt += 1;
+        temp = temp->u.array.elem;
+    }
+    return cnt;
+}
+
 //双向链表的插入
 void Link_Insert(InterCodes cur)
 {
@@ -75,9 +102,13 @@ void printOP(Operand op, FILE *file)
     {
     case (VARIABLE_OPERAND):
     {
-        if (op->type == ADDRESS)
+        if (op->type == ADDRESS_AND)
         {
             fprintf(file, "&");
+        }
+        else if (op->type == ADDRESS_STAR)
+        {
+            fprintf(file, "*");
         }
         fprintf(file, "v%d", op->var_no);
         break;
@@ -94,9 +125,13 @@ void printOP(Operand op, FILE *file)
     }
     case (TEMP_OPERAND):
     {
-        if (op->type == ADDRESS)
+        if (op->type == ADDRESS_STAR)
         {
             fprintf(file, "*");
+        }
+        else if (op->type == ADDRESS_AND)
+        {
+            fprintf(file, "&");
         }
         fprintf(file, "t%d", op->var_no);
         break;
@@ -302,7 +337,50 @@ Operand createOP(int kind, int address, ...)
 
 int typeSize(Type cur)
 {
-    return 4;
+    assert(cur != NULL);
+    if (cur->kind == BASIC)
+    {
+        return 4;
+    }
+    else if (cur->kind == ARRAY)
+    {
+        int arrSize = 1;
+        Type tmpType = cur;
+        while (tmpType != NULL)
+        {
+            if (tmpType->kind != ARRAY)
+                break;
+            arrSize *= tmpType->u.array.size;
+            tmpType = tmpType->u.array.elem;
+        }
+        arrSize *= typeSize(tmpType);
+        return arrSize;
+    }
+    else if (cur->kind == STRUCTURE)
+    {
+        int strucSize = 0;
+        FieldList tmpStruct = cur->u.my_struct.structure;
+        while (tmpStruct != NULL)
+        {
+            strucSize += typeSize(tmpStruct->type);
+            tmpStruct = tmpStruct->tail;
+        }
+        return strucSize;
+    }
+}
+
+int get_struct_offset(Type struct_type, char* name)
+{
+    FieldList head = struct_type->u.my_struct.structure;
+    int res = 0;
+    while(head != NULL)
+    {
+        if(strcmp(name, head->name) == 0)
+            break;
+        res += typeSize(head->type);
+        head = head->tail;
+    }
+    return res;
 }
 
 //开始生成中间代码
@@ -380,21 +458,22 @@ void translate_FunDec(struct Node *cur)
         {
             Operand paraop = NULL;
             if (paras->type->kind == ARRAY || paras->type->kind == STRUCTURE)
-                paraop = createOP(VARIABLE_OPERAND, ADDRESS, (char *)paras->name);
+                paraop = createOP(VARIABLE_OPERAND, ADDRESS_AND, (char *)paras->name);
             else
                 paraop = createOP(VARIABLE_OPERAND, VAL, (char *)paras->name);
-
-            ST_node query_paras = find_symbol(paras->name, __INT_MAX__);
-            if (query_paras == NULL)
+            ST_node paras_node = find_symbol(paras->name, __INT_MAX__);
+            if (paras_node == NULL)
             {
                 printf("unsuccessful parameters query!\n");
                 assert(0);
             }
+            paras_node->var_no = paraop->var_no;
+            paras_node->ifaddress = paraop->type;
 
-            query_paras->var_no = paraop->var_no;
-            query_paras->ifaddress = paraop->type;
-            paraop->type = VAL;
-            newIntercode(PARAM, paraop);
+            Operand paraop_val = copyOP(paraop);
+            paraop_val->type = VAL;
+            newIntercode(PARAM, paraop_val);
+
             paras = paras->tail;
         }
     }
@@ -447,12 +526,12 @@ int translate_Stmt(struct Node *cur)
     }
     else if (strcmp(temp1->name, "Exp") == 0)
     {
-        translate_Exp(temp1);
+        translate_Exp(temp1, 0);
     }
     else if (strcmp(temp1->name, "RETURN") == 0)
     {
         struct Node *expnode = getchild(cur, 1);
-        Operand expop = translate_Exp(expnode);
+        Operand expop = translate_Exp(expnode, 0);
         newIntercode(RETURN, expop);
     }
     else if (strcmp(temp1->name, "WHILE") == 0)
@@ -548,7 +627,7 @@ void translate_Dec(struct Node *cur)
     else
     {
         Operand t1 = translate_VarDec(VarDec_node);
-        Operand t2 = translate_Exp(getchild(cur, 2));
+        Operand t2 = translate_Exp(getchild(cur, 2), 0);
         newIntercode(ASSIGN, t1, t2);
     }
 }
@@ -560,21 +639,31 @@ Operand translate_VarDec(struct Node *cur)
     struct Node *ID_node = getchild(cur, 0);
     if (strcmp(ID_node->name, "ID") == 0)
     {
+        //ID
         ST_node my_id = find_symbol(ID_node->string_content, __INT_MAX__);
         assert(my_id != NULL);
         int typesize = typeSize(my_id->type);
         result = createOP(VARIABLE_OPERAND, VAL, ID_node->string_content);
-        my_id->ifaddress = result->type;
+        my_id->ifaddress = 0;//这个node对应的变量里面存放的不是address
         my_id->var_no = result->var_no;
-        if (typesize != 4)
+        if (my_id->type->kind == STRUCTURE)
         {
-            //结构体，需要计算申请空间
-            Operand op = createOP(CONSTANT_OPERAND, VAL, typesize);
+            //结构体, 需要计算申请空间
+            Operand op = createOP(CONSTANT_OPERAND, ADDRESS_AND, typesize);
+            Operand result_copy = copyOP(result);
+            newIntercode(DEC, result_copy, op);
+            result->type = ADDRESS_AND;
+        }
+        else if(my_id->type->kind == ARRAY)
+        {
+            //数组, 需要计算申请空间
+            Operand op = createOP(CONSTANT_OPERAND, VAL, typesize); //有待更改
             newIntercode(DEC, result, op);
         }
     }
-    else
-    {
+    else//有待确认
+    { 
+        //VarDec LB INT RB 
         struct Node *find_node = getchild(ID_node, 0);
         while (strcmp(find_node->name, "ID") != 0)
             find_node = find_node->child;
@@ -582,7 +671,6 @@ Operand translate_VarDec(struct Node *cur)
         ST_node my_id = find_symbol(find_node->string_content, __INT_MAX__);
 
         result = createOP(VARIABLE_OPERAND, VAL, find_node->string_content);
-        my_id->ifaddress = result->type;
         my_id->var_no = result->var_no;
         int arraysize = typeSize(my_id->type);
         Operand op = createOP(CONSTANT_OPERAND, VAL, arraysize);
@@ -595,36 +683,18 @@ Operand translate_VarDec(struct Node *cur)
 void translate_Arg(struct Node *cur, FieldList para)
 {
     if (cur == NULL || para == NULL)
-        return 0;
+        return;
 
-    Operand temp_op = translate_Exp(getchild(cur, 0));
-    //Operand op = copyOP(temp_op); //?
-    //op->address = !op->address; ???
+    Operand temp_op = translate_Exp(getchild(cur, 0), 0);
 
-    /* 暂时不考虑拓展功能
+
     if (para->type->kind == STRUCTURE || para->type->kind == ARRAY)
     {
-        int flag = 0;
-        if (para->type->kind == ARRAY)
-        {
-            char *name = op->varName;
-            ST_node ARR_node = find_symbol(name, __INT_MAX__);
-            int arraydepth = getarraydepth(ARR_node);
-            if (op->depth < arraydepth)
-                flag = 1;
-            if (op->depth == 0)
-                flag = 0;
-        }
-        if (flag == 1)
-        {
-            op->address = VAL;
-        }
-        else if (op->address == ADDRESS_OPERAND)
-            op->address = VAL;
-        else
-            op->address = ADDRESS_OPERAND;
-    }*/
-
+        temp_op->type = ADDRESS_AND;
+    }
+    else
+        temp_op->type = VAL;
+    
     if (getchild(cur, 1) != NULL)
         translate_Arg(getchild(cur, 2), para->tail);
     
@@ -632,7 +702,7 @@ void translate_Arg(struct Node *cur, FieldList para)
 }
 
 //返回值就是pdf 中的place
-Operand translate_Exp(struct Node *cur)
+Operand translate_Exp(struct Node *cur, int isleft) //isleft表示当前这个exp是左值还是右值(默认右值)
 {
     Operand place=NULL;
 
@@ -647,15 +717,10 @@ Operand translate_Exp(struct Node *cur)
             assert(ID_node != NULL);
 			if(ID_node->type->kind==ARRAY||ID_node->type->kind==STRUCTURE)
             {
-
-				if(ID_node->ifaddress==ADDRESS)
-					place = createOP(VARIABLE_OPERAND,ADDRESS,my_node1->string_content);
-				else
-					place = createOP(VARIABLE_OPERAND,VAL,my_node1->string_content);
+                place = createOP(VARIABLE_OPERAND, ID_node->ifaddress, my_node1->string_content);
 				varCount--; //这里不是在定义变量
 				place->var_no = ID_node->var_no;
-
-				//place->depth=0;
+				place->depth=0;
 				return place;
 			}
             else
@@ -663,8 +728,7 @@ Operand translate_Exp(struct Node *cur)
 				place = createOP(VARIABLE_OPERAND,VAL,my_node1->string_content);
 				varCount--;
 				place->var_no=ID_node->var_no;
-
-				//place->depth=0;
+				place->depth=0;
 				return place;
 			}
 		}
@@ -680,7 +744,7 @@ Operand translate_Exp(struct Node *cur)
 					Operand op_temp=NULL;
 					if(strcmp(my_node31->name,"Exp")==0)
                     {
-						op_temp = translate_Exp(my_node31);
+						op_temp = translate_Exp(my_node31, 0);
 					}
 					if(op_temp != NULL)
 					    newIntercode(WRITE, op_temp);
@@ -728,12 +792,12 @@ Operand translate_Exp(struct Node *cur)
     else if(strcmp(my_node1->name,"LP") == 0)
     {
 		struct Node* exp_node=getchild(cur,1);
-		return translate_Exp(exp_node);
+		return translate_Exp(exp_node, 0);
 	}
     else if(strcmp(my_node1->name,"MINUS")==0)
     {
         struct Node* exp_node=getchild(cur,1);
-        Operand t1 = translate_Exp(exp_node);
+        Operand t1 = translate_Exp(exp_node, 0);
 
 		Operand zero=createOP(CONSTANT_OPERAND, VAL,0);
 		place = createOP(TEMP_OPERAND, VAL);
@@ -794,8 +858,8 @@ Operand translate_Exp(struct Node *cur)
 
             struct Node*exp_node1 = my_node1;
             struct Node*exp_node2 = getchild(cur,2);
-            Operand t1 = translate_Exp(exp_node1);
-            Operand t2 = translate_Exp(exp_node2);
+            Operand t1 = translate_Exp(exp_node1, 0);
+            Operand t2 = translate_Exp(exp_node2, 0);
             
             place = createOP(TEMP_OPERAND,VAL);
             if(t1!=NULL && t2!=NULL)
@@ -803,112 +867,172 @@ Operand translate_Exp(struct Node *cur)
             
             return place;
 		}
-		else if(strcmp(my_node2->name,"ASSIGNOP")==0) //现在仅仅考虑了第一个Exp是ID的情况
+		else if(strcmp(my_node2->name,"ASSIGNOP")==0) 
         {
-            struct Node*exp_node1 = my_node1;
-            struct Node*exp_node2 = getchild(cur,2);
-            place = translate_Exp(exp_node1);
-            Operand t1 = translate_Exp(exp_node2);
+            //现在仅仅考虑了Exp1->ID的情况
+            if(strcmp(getchild(my_node1, 0)->name, "ID") == 0 && getchild(my_node1, 0)->next_sib == NULL)
+            {
+                struct Node*exp_node1 = my_node1;
+                struct Node*exp_node2 = getchild(cur,2);
+                place = translate_Exp(exp_node1, 1);
+                Operand t1 = translate_Exp(exp_node2, 0);
+                assert(place->type == VAL);
+                assert(t1->type == VAL);
+                newIntercode(ASSIGN, place, t1);
+                //其实我觉得这里不用返回place了，等于之后不会再用了
+                place = t1;
+                return place;
+            }
+            //Exp1 -> Exp DOT ID ,这个时候Exp1一定是一个地址（左值）
+            else if(strcmp(getchild(my_node1, 0)->name, "Exp") == 0 && strcmp(getchild(my_node1, 1)->name, "DOT") == 0)
+            {
+                struct Node*Exp_node1 = my_node1;
+                struct Node*Exp_node2 = getchild(cur,2);
+                Operand exp1 = translate_Exp(Exp_node1, 1); //这个时候exp1必然是一个地址
+                assert(exp1->type != VAL);
+                //接下去对exp1赋值的时候要用*exp1,要转换成值
+                Operand exp1_copy = copyOP(exp1);
+                exp1_copy->type = ADDRESS_STAR;
 
-            newIntercode(ASSIGN, place, t1);
-            place = t1;
+                Operand exp2 = translate_Exp(Exp_node2, 0);//这里exp2应该是一个值
+                if(exp2->type != VAL)
+                {
+                    exp2->type = ADDRESS_STAR;//如果是一个地址，应该转换成值
+                }
+                newIntercode(ASSIGN, exp1_copy, exp2);
 
-            return place;
+                place = exp1;
+                return place;
+            }
+            else //这时候Exp1应该是数组元素
+            {
+                assert(0);
+            }
 		}
-		/* 先不考虑结构体和数组
         else if(strcmp(my_node2->name,"DOT")==0)
         {
-			Operand exp_op=Exp(my_node1);
-			Operand temp_expop=copyOP(exp_op);
-			struct Node* my_node3=getchild(cur,2);
-			int queryok=0;
-			ST_node queryid=find_symbol(my_node3->string_content,__INT_MAX__);
-			int offset=queryid->offset;
+			Operand exp_op = translate_Exp(my_node1, 0);
+			struct Node* ID_node = getchild(cur,2);
+            Type struct_type = Exp(my_node1);
+            int offset = get_struct_offset(struct_type, ID_node->string_content);
 
-			if(offset==0){
-				Operand ttemp=createOP(TEMP_OPERAND,VAL);
-				if(temp_expop->address==ADDRESS)
-				    temp_expop->address=VAL;
-				else
-					temp_expop->address=ADDRESS;
-				newIntercode(ASSIGN,ttemp,temp_expop);
-				place=copyOP(ttemp);
-				place->address=ADDRESS;
-				place->varName=my_node3->string_content;
+			if(offset==0)
+            {
+                place = createOP(TEMP_OPERAND,VAL);
+                if(exp_op->type != VAL)//如果这个Exp对应的node存放的是地址
+                {
+                    if(isleft)
+                    {
+                        //不用动，这时候要的是地址
+                    }
+                    else
+                    {
+                        exp_op->type = ADDRESS_STAR; //这时候要的是传值*v
+                    }
+                }
+                else
+                {
+                    if(isleft)
+                    {
+                        exp_op->type = ADDRESS_AND; //这时候要传地址&v
+                    }
+                    else
+                    {
+                        //不用动，我要传值
+                    }
+                }
+                Operand place_copy = copyOP(place);
+				newIntercode(ASSIGN, place_copy, exp_op);
+				place->varName = ID_node->string_content;
+                if(isleft == 1)//如果是左值，那么说明这个表达式本身存放的是地址
+                    place->type = ADDRESS_AND;
 				return place;
-			}else{
-				Operand constantop=createOP(CONSTANT_OPERAND,VAL,offset);
-				Operand ttemp=createOP(TEMP_OPERAND,VAL);
+			}
+            else
+            {
+                //这时候我要exp_op是个地址;
+                if(exp_op->type != VAL)//如果这个Exp对应的node存放的是地址
+                {
+                    exp_op->type = VAL;//打印的时候就打印v就可以了
+                }
+                else
+                {
+                    exp_op->type = ADDRESS_AND; //这时候要传地址&v
+                }
+				Operand constantop = createOP(CONSTANT_OPERAND,VAL,offset);
+				Operand newtemp = createOP(TEMP_OPERAND, VAL);//这里存放的是地址
+                Operand newtemp_copy = copyOP(newtemp);
+				newIntercode(ADD, newtemp_copy, exp_op, constantop);
 
-				if(temp_expop->address==ADDRESS)
-				temp_expop->address=VAL;
-				else{
-					temp_expop->address=ADDRESS;
-				}
+                if(isleft)
+                {
+                    //不用动，这时候要的是地址
+                }
+                else
+                {
+                    newtemp->type = ADDRESS_STAR; //这时候要的是传值*v
+                }
 
-				newIntercode(ADD,ttemp,temp_expop,constantop);
-				place=copyOP(ttemp);
-				place->address=ADDRESS;
-				place->varName=my_node3->string_content;
+                place = createOP(TEMP_OPERAND,VAL);
+                Operand place_copy = copyOP(place);
+                newIntercode(ASSIGN, place_copy, newtemp);
+
+				place->varName = ID_node->string_content;
+                if(isleft == 1)//这时候place里面存放的是地址
+                    place->type = ADDRESS_AND;
 				return place;
 			}
 			
 		}
-		else if(strcmp(my_node2->name,"LB")==0){
-			Operand expt1=copyOP(Exp(my_node1));
-			int depth=expt1->depth;
+		else if(strcmp(my_node2->name,"LB")==0)
+        {
+			Operand exp1 = translate_Exp(my_node1, 0);
+			int depth = exp1->depth;
 
-			ST_node queryid=find_symbol(expt1->varName,__INT_MAX__);
-			Type ttemptype=queryid->type;
-			Type temptype=ttemptype;
-			int cnt=0;
-			while(temptype->kind==ARRAY){
-				cnt+=1;
-				temptype=temptype->u.array.elem;
-			}
-			int typesize=typeSize(temptype);
-			int*arraysize=(int* )malloc(sizeof(int)*(cnt+1));
-			cnt=0;
-			temptype=ttemptype;
-			while(temptype->kind==ARRAY){
-				arraysize[cnt]=temptype->u.array.size;
-				cnt+=1;
-				temptype=temptype->u.array.elem;
-			}
-			int ptr=cnt-1;
-			int tempdepth=cnt-depth-1;
-			int offset=1;
-			while(tempdepth){
-				offset*=arraysize[ptr];
-				tempdepth-=1;
-				ptr-=1;
-			}
-			free(arraysize);
-			offset=offset*typesize;
+			ST_node queryid = find_symbol(exp1->varName,__INT_MAX__);
+			Type temptype = queryid->type;
+            assert(temptype->kind == ARRAY);
 
-			struct Node*tempnode3=getchild(cur,2);
-			Operand expt1=Exp(tempnode3);
+			int cnt = getarraydepth(queryid);
+			int*arraysize = (int* )malloc(sizeof(int)*(cnt + 1));
+
+			cnt = 0;
+			while(temptype->kind==ARRAY)
+            {
+				arraysize[cnt] = temptype->u.array.size;
+				cnt++;
+				temptype = temptype->u.array.elem;
+			}
+            int typesize = typeSize(temptype); //array中装的元素的长度（比如int是4）
+
+			int ptr = cnt - 1;
+			int tempdepth = cnt - depth - 1;
+			int offset = 1;
+			while(tempdepth != 0)
+            {
+				offset *= arraysize[ptr];
+				tempdepth--;
+				ptr--;
+			}
+
+			offset = offset * typesize;
+
+			struct Node*tempnode3 = getchild(cur,2);
+			Operand exp2 = translate_Exp(tempnode3, 0);
 			
-			Operand tempt1=createOP(TEMP_OPERAND,VAL);
-			Operand constantt1=createOP(CONSTANT_OPERAND,VAL,offset);
-			newIntercode(MUL,tempt1,expt1,constantt1);
+			Operand tempt1 = createOP(TEMP_OPERAND,VAL);
+			Operand constant1 = createOP(CONSTANT_OPERAND,VAL,offset);
+			newIntercode(MUL,tempt1, exp2, constant1);
 
-			Operand tempt1=createOP(TEMP_OPERAND,VAL);
-			tempt1->varName=expt1->varName;
-			tempt1->depth=depth+1;
-			if(depth==0&&expt1->address==VAL){
-				expt1->address=ADDRESS;
-			}else{
-				expt1->address=VAL;
-			}
-			newIntercode(ADD,tempt1,expt1,tempt1);
+			Operand tempt2 = createOP(TEMP_OPERAND,VAL);
+			tempt2->varName = exp1->varName;
+			tempt2->depth = depth + 1;
+			newIntercode(ADD,tempt2, exp1, tempt1); //tempt2里面存的是一个地址
 
-			place=copyOP(tempt1);
-			if(tempt1->depth==cnt){
-				place->address=ADDRESS;
-			}
+			place= tempt2;
+			//place->type = ADDRESS;
 			return place;
-		}*/
+		}
 	}
 	return place;
 }
@@ -945,9 +1069,9 @@ void translate_Cond(struct Node* cur,Operand label_true,Operand label_false)
         }
         else if(strcmp(my_node2->name,"RELOP")==0)
         {
-            Operand op1 = translate_Exp(my_node1);
+            Operand op1 = translate_Exp(my_node1, 0);
             struct Node* my_node3 = getchild(cur,2);
-            Operand op2 = translate_Exp(my_node3);
+            Operand op2 = translate_Exp(my_node3, 0);
 
             newIntercode(IFGOTO,op1,my_node2->string_content,op2,label_true);
             newIntercode(GOTO,label_false);
@@ -965,7 +1089,7 @@ void translate_Cond(struct Node* cur,Operand label_true,Operand label_false)
     }
     else
     {
-        Operand op = translate_Exp(cur);
+        Operand op = translate_Exp(cur, 0);
         newIntercode(IFGOTO,op,"!=",zero,label_true);
         newIntercode(GOTO,label_false);
     }
