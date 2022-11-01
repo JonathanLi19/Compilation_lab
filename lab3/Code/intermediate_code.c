@@ -649,7 +649,7 @@ Operand translate_VarDec(struct Node *cur)
         if (my_id->type->kind == STRUCTURE)
         {
             //结构体, 需要计算申请空间
-            Operand op = createOP(CONSTANT_OPERAND, ADDRESS_AND, typesize);
+            Operand op = createOP(CONSTANT_OPERAND, VAL, typesize);
             Operand result_copy = copyOP(result);
             newIntercode(DEC, result_copy, op);
             result->type = ADDRESS_AND;
@@ -657,14 +657,16 @@ Operand translate_VarDec(struct Node *cur)
         else if(my_id->type->kind == ARRAY)
         {
             //数组, 需要计算申请空间
-            Operand op = createOP(CONSTANT_OPERAND, VAL, typesize); //有待更改
-            newIntercode(DEC, result, op);
+            Operand op = createOP(CONSTANT_OPERAND, VAL, typesize);
+            Operand result_copy = copyOP(result);
+            newIntercode(DEC, result_copy, op);
+            result->type = ADDRESS_AND;
         }
     }
     else//有待确认
     { 
         //VarDec LB INT RB 
-        struct Node *find_node = getchild(ID_node, 0);
+        struct Node *find_node = getchild(ID_node, 0); //这时候ID_node是VarDec
         while (strcmp(find_node->name, "ID") != 0)
             find_node = find_node->child;
 
@@ -672,9 +674,12 @@ Operand translate_VarDec(struct Node *cur)
 
         result = createOP(VARIABLE_OPERAND, VAL, find_node->string_content);
         my_id->var_no = result->var_no;
+        my_id->ifaddress = 0;
         int arraysize = typeSize(my_id->type);
         Operand op = createOP(CONSTANT_OPERAND, VAL, arraysize);
-        newIntercode(DEC, result, op);
+        Operand result_copy = copyOP(result);
+        newIntercode(DEC, result_copy, op);
+        result->type = ADDRESS_AND;
     }
 
     return result;
@@ -690,7 +695,13 @@ void translate_Arg(struct Node *cur, FieldList para)
 
     if (para->type->kind == STRUCTURE || para->type->kind == ARRAY)
     {
-        temp_op->type = ADDRESS_AND;
+        //这里应该传地址
+        if(temp_op->type != VAL)
+        {
+            temp_op->type = VAL;
+        }
+        else
+            temp_op->type = ADDRESS_AND;
     }
     else
         temp_op->type = VAL;
@@ -744,13 +755,13 @@ Operand translate_Exp(struct Node *cur, int isleft) //isleft表示当前这个ex
 					Operand op_temp=NULL;
 					if(strcmp(my_node31->name,"Exp")==0)
                     {
-						op_temp = translate_Exp(my_node31, 0);
+						op_temp = translate_Exp(my_node31, isleft);
 					}
 					if(op_temp != NULL)
 					    newIntercode(WRITE, op_temp);
-					Operand constant_op = createOP(CONSTANT_OPERAND,VAL,0);
-					place = createOP(TEMP_OPERAND,VAL);
-					newIntercode(ASSIGN,place,constant_op);
+					//Operand constant_op = createOP(CONSTANT_OPERAND,VAL,0);
+					//place = createOP(TEMP_OPERAND,VAL);
+					//newIntercode(ASSIGN,place,constant_op);
 
 					return place;
 				}
@@ -792,12 +803,12 @@ Operand translate_Exp(struct Node *cur, int isleft) //isleft表示当前这个ex
     else if(strcmp(my_node1->name,"LP") == 0)
     {
 		struct Node* exp_node=getchild(cur,1);
-		return translate_Exp(exp_node, 0);
+		return translate_Exp(exp_node, isleft);
 	}
     else if(strcmp(my_node1->name,"MINUS")==0)
     {
         struct Node* exp_node=getchild(cur,1);
-        Operand t1 = translate_Exp(exp_node, 0);
+        Operand t1 = translate_Exp(exp_node, isleft);
 
 		Operand zero=createOP(CONSTANT_OPERAND, VAL,0);
 		place = createOP(TEMP_OPERAND, VAL);
@@ -858,8 +869,8 @@ Operand translate_Exp(struct Node *cur, int isleft) //isleft表示当前这个ex
 
             struct Node*exp_node1 = my_node1;
             struct Node*exp_node2 = getchild(cur,2);
-            Operand t1 = translate_Exp(exp_node1, 0);
-            Operand t2 = translate_Exp(exp_node2, 0);
+            Operand t1 = translate_Exp(exp_node1, isleft);
+            Operand t2 = translate_Exp(exp_node2, isleft);
             
             place = createOP(TEMP_OPERAND,VAL);
             if(t1!=NULL && t2!=NULL)
@@ -872,51 +883,109 @@ Operand translate_Exp(struct Node *cur, int isleft) //isleft表示当前这个ex
             //现在仅仅考虑了Exp1->ID的情况
             if(strcmp(getchild(my_node1, 0)->name, "ID") == 0 && getchild(my_node1, 0)->next_sib == NULL)
             {
-                struct Node*exp_node1 = my_node1;
-                struct Node*exp_node2 = getchild(cur,2);
+                //注意这里应该考虑如果ID是个地址该咋办
+                struct Node* ID_node = getchild(my_node1, 0);
+                struct Node* exp_node1 = my_node1;
+                struct Node* exp_node2 = getchild(cur,2);
                 place = translate_Exp(exp_node1, 1);
                 Operand t1 = translate_Exp(exp_node2, 0);
-                assert(place->type == VAL);
-                assert(t1->type == VAL);
-                newIntercode(ASSIGN, place, t1);
+                ST_node found = find_symbol(ID_node->string_content, __INT_MAX__);
+                if(found->type->kind == ARRAY || found->type->kind == STRUCTURE)
+                {
+                    //这个时候place里面可能是值或者地址，要把它转换成地址，对于t1也是同理
+                    /*if(place->type != VAL)
+                    {
+                        place->type = VAL;
+                    }
+                    else
+                    {
+                        place->type = ADDRESS_AND;
+                    }*/
+                    place->type = VAL;
+                    if(t1->type != VAL)
+                    {
+                        t1->type = VAL;
+                    }
+                    else
+                    {
+                        t1->type = ADDRESS_AND;
+                    }
+                    newIntercode(ASSIGN, place, t1);
+                    found->ifaddress = 1;
+                    return place;
+                }
+                else
+                    newIntercode(ASSIGN, place, t1);
                 //其实我觉得这里不用返回place了，等于之后不会再用了
-                place = t1;
                 return place;
             }
             //Exp1 -> Exp DOT ID ,这个时候Exp1一定是一个地址（左值）
             else if(strcmp(getchild(my_node1, 0)->name, "Exp") == 0 && strcmp(getchild(my_node1, 1)->name, "DOT") == 0)
             {
-                struct Node*Exp_node1 = my_node1;
-                struct Node*Exp_node2 = getchild(cur,2);
-                Operand exp1 = translate_Exp(Exp_node1, 1); //这个时候exp1必然是一个地址
-                assert(exp1->type != VAL);
-                //接下去对exp1赋值的时候要用*exp1,要转换成值
-                Operand exp1_copy = copyOP(exp1);
-                exp1_copy->type = ADDRESS_STAR;
+                struct Node* Exp_node1 = my_node1;
+                struct Node* Exp_node2 = getchild(cur,2);
+                Operand exp1 = translate_Exp(Exp_node1, 1); //这个时候exp1里面放的可能是地址或者值，我要把它转换成值
+                //assert(exp1->type != VAL);
+                if(exp1->type != VAL)//如果这个Exp对应的node存放的是地址
+                {
+                    exp1->type = ADDRESS_STAR; //这时候要的是传值*v
+                }
+                else
+                {
+                    //不用动，我要传值
+                }
+                Operand exp2 = translate_Exp(Exp_node2, 0);//这个时候exp2里面放的可能是地址或者值，我要把它转换成值
 
-                Operand exp2 = translate_Exp(Exp_node2, 0);//这里exp2应该是一个值
                 if(exp2->type != VAL)
                 {
                     exp2->type = ADDRESS_STAR;//如果是一个地址，应该转换成值
                 }
-                newIntercode(ASSIGN, exp1_copy, exp2);
-
+                else
+                {
+                    //不用动，我要传值
+                }
+                newIntercode(ASSIGN, exp1, exp2);
                 place = exp1;
                 return place;
             }
             else //这时候Exp1应该是数组元素
             {
-                assert(0);
+                struct Node* Exp_node1 = my_node1;
+                assert(strcmp(getchild(my_node1, 0)->name, "Exp") == 0 && strcmp(getchild(my_node1, 1)->name, "LB") == 0);
+                struct Node* Exp_node2 = getchild(cur,2);
+                Operand exp1 = translate_Exp(Exp_node1, 1); //这个时候exp1里面放的可能是地址或者值，我要把它转换成值
+
+                if(exp1->type != VAL)//如果这个Exp对应的node存放的是地址
+                {
+                    exp1->type = ADDRESS_STAR; //这时候要的是传值*v
+                }
+                else
+                {
+                    //不用动，我要传值
+                }
+                Operand exp2 = translate_Exp(Exp_node2, 0);////这个时候exp2里面放的可能是地址或者值，我要把它转换成值
+                if(exp2->type != VAL)
+                {
+                    exp2->type = ADDRESS_STAR;//如果是一个地址，应该转换成值
+                }
+                else
+                {
+                    //不用动，我要传值
+                }
+                newIntercode(ASSIGN, exp1, exp2);
+
+                place = exp1;
+                return place;
             }
 		}
         else if(strcmp(my_node2->name,"DOT")==0)
         {
-			Operand exp_op = translate_Exp(my_node1, 0);
+			Operand exp_op = translate_Exp(my_node1, isleft);//这里Exp1有可能是一个数组的形式比如a[1]
 			struct Node* ID_node = getchild(cur,2);
             Type struct_type = Exp(my_node1);
             int offset = get_struct_offset(struct_type, ID_node->string_content);
 
-			if(offset==0)
+			/*if(offset==0)
             {
                 place = createOP(TEMP_OPERAND,VAL);
                 if(exp_op->type != VAL)//如果这个Exp对应的node存放的是地址
@@ -946,6 +1015,8 @@ Operand translate_Exp(struct Node *cur, int isleft) //isleft表示当前这个ex
 				place->varName = ID_node->string_content;
                 if(isleft == 1)//如果是左值，那么说明这个表达式本身存放的是地址
                     place->type = ADDRESS_AND;
+                else
+                    place->type = VAL;
 				return place;
 			}
             else
@@ -980,58 +1051,118 @@ Operand translate_Exp(struct Node *cur, int isleft) //isleft表示当前这个ex
 				place->varName = ID_node->string_content;
                 if(isleft == 1)//这时候place里面存放的是地址
                     place->type = ADDRESS_AND;
+                else
+                    place->type = VAL;
 				return place;
-			}
-			
+			}*/
+			//这时候我要exp_op是个地址;
+            if(exp_op->type != VAL)//如果这个Exp对应的node存放的是地址
+            {
+                exp_op->type = VAL;//打印的时候就打印v就可以了
+            }
+            else
+            {
+                exp_op->type = ADDRESS_AND; //这时候要传地址&v
+            }
+            Operand constantop = createOP(CONSTANT_OPERAND,VAL,offset);
+            Operand newtemp = createOP(TEMP_OPERAND, VAL);//这里存放的是地址
+            Operand newtemp_copy = copyOP(newtemp);
+            newIntercode(ADD, newtemp_copy, exp_op, constantop);
+            //现在问题是即使我在等号右边，也有可能要传的是地址（比如A.x[1]这个时候即使他在等号右边，我的newtemp也应该传地址)
+            ST_node found = find_struct(ID_node->string_content);
+            if(found->type->kind == ARRAY) //这个时候我们一直要的是地址,不管是否isleft
+            {
+                //所以这里不用动
+            }
+            else
+            {
+                if(isleft)
+                {
+                    //不用动，这时候要的是地址
+                }
+                else
+                {
+                    newtemp->type = ADDRESS_STAR; //这时候要的是传值*v
+                }
+            }
+
+            place = createOP(TEMP_OPERAND,VAL);
+            Operand place_copy = copyOP(place);
+            newIntercode(ASSIGN, place_copy, newtemp);
+            place->depth = 0;
+            place->varName = ID_node->string_content;
+            if(isleft == 1)//这时候place里面存放的是地址
+                place->type = ADDRESS_AND;
+            else
+                place->type = VAL;
+            if(found->type->kind == ARRAY) //这个时候我们一直要的是地址,不管是否isleft
+            {
+                place->type = ADDRESS_AND;
+            }
+            return place;
 		}
 		else if(strcmp(my_node2->name,"LB")==0)
         {
-			Operand exp1 = translate_Exp(my_node1, 0);
-			int depth = exp1->depth;
-
-			ST_node queryid = find_symbol(exp1->varName,__INT_MAX__);
+			Operand exp1 = translate_Exp(my_node1, isleft);//这里exp1里面有可能是值或者地址
+            assert(exp1 != NULL);
+			int depth = exp1->depth; //Exp1中有几个中括号
+			ST_node queryid = NULL;
+            queryid = find_symbol(exp1->varName,__INT_MAX__); //注意这里可能是结构体内定义的数组变量！
+            if(queryid == NULL)
+                queryid = find_struct(exp1->varName);
+            assert(queryid != NULL);
 			Type temptype = queryid->type;
             assert(temptype->kind == ARRAY);
 
 			int cnt = getarraydepth(queryid);
-			int*arraysize = (int* )malloc(sizeof(int)*(cnt + 1));
+			int* arraysize = (int* )malloc(sizeof(int)*(cnt + 1));
 
 			cnt = 0;
 			while(temptype->kind==ARRAY)
             {
-				arraysize[cnt] = temptype->u.array.size;
+				arraysize[cnt] = temptype->u.array.size; //arraysize[0]指的是最外层的[]里有几个元素
 				cnt++;
 				temptype = temptype->u.array.elem;
 			}
-            int typesize = typeSize(temptype); //array中装的元素的长度（比如int是4）
+            int element_size = typeSize(temptype); //array中装的元素的长度（比如int是4）
 
 			int ptr = cnt - 1;
 			int tempdepth = cnt - depth - 1;
 			int offset = 1;
-			while(tempdepth != 0)
+			while(tempdepth > 0)
             {
 				offset *= arraysize[ptr];
 				tempdepth--;
 				ptr--;
 			}
 
-			offset = offset * typesize;
+			offset = offset * element_size;
 
-			struct Node*tempnode3 = getchild(cur,2);
-			Operand exp2 = translate_Exp(tempnode3, 0);
+			struct Node*Exp_node2 = getchild(cur,2);
+			Operand exp2 = translate_Exp(Exp_node2, isleft);
 			
-			Operand tempt1 = createOP(TEMP_OPERAND,VAL);
+            Operand tempt1 = createOP(TEMP_OPERAND,VAL);
 			Operand constant1 = createOP(CONSTANT_OPERAND,VAL,offset);
 			newIntercode(MUL,tempt1, exp2, constant1);
 
 			Operand tempt2 = createOP(TEMP_OPERAND,VAL);
 			tempt2->varName = exp1->varName;
 			tempt2->depth = depth + 1;
-			newIntercode(ADD,tempt2, exp1, tempt1); //tempt2里面存的是一个地址
 
-			place= tempt2;
-			//place->type = ADDRESS;
-			return place;
+            if(exp1->type != VAL)//如果这个Exp对应的node存放的是地址
+            {
+                exp1->type = VAL;//打印的时候就打印v就可以了
+            }
+            else
+            {
+                exp1->type = ADDRESS_AND; //这时候要传地址&v
+            }
+            Operand tempt2_copy = copyOP(tempt2);
+			newIntercode(ADD,tempt2_copy, exp1, tempt1); //tempt2里面存的是一个地址，所以要把exp1也转换成一个地址
+            place = copyOP(tempt2);
+            //这时候place里面存放的是地址
+            place->type = ADDRESS_STAR;
+            return place;
 		}
 	}
 	return place;

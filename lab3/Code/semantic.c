@@ -539,7 +539,7 @@ Type Exp(struct Node *cur_node)
                         char *node2_name = tmp_nodee2->string_content;
                         char *field_name = (char *)(malloc(sizeof(char) * (1 + strlen(node2_name) + strlen(exp_nodetype->u.my_struct.name))));
                         strcpy(field_name, node2_name);
-                        strcat(field_name, exp_nodetype->u.my_struct.name);
+                        //strcat(field_name, exp_nodetype->u.my_struct.name);
                         if (find_struct(field_name) != NULL)
                         {
                             result = find_struct(field_name)->type;
@@ -973,7 +973,7 @@ FieldList Def_struct(struct Node *cur_node, char *struct_name)
             return NULL;
         char *Dec_name = (char *)malloc(1 + strlen(struct_name) + strlen(Dec_field->name));
         strcpy(Dec_name, Dec_field->name);
-        strcat(Dec_name, struct_name);
+        //strcat(Dec_name, struct_name);
 
         if (find_struct(Dec_name) != NULL) //结构体中域名重复定义
         {
