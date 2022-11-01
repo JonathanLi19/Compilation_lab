@@ -1,0 +1,153 @@
+FUNCTION dot : 
+PARAM v0
+PARAM v1
+t0 := v0 + #0
+t1 := *t0
+t2 := v1 + #0
+t3 := *t2
+t4 := t1 * t3
+t5 := v0 + #4
+t6 := *t5
+t7 := v1 + #4
+t8 := *t7
+t9 := t6 * t8
+t10 := t4 + t9
+t11 := v0 + #8
+t12 := *t11
+t13 := v1 + #8
+t14 := *t13
+t15 := t12 * t14
+t16 := t10 + t15
+RETURN t16
+FUNCTION sqrt : 
+PARAM v2
+v3 := #0
+LABEL label0 : 
+IF v3 <= v2 GOTO label1
+GOTO label2
+LABEL label1 : 
+t17 := v3 * v3
+v4 := t17
+t18 := v3 + #1
+t19 := v3 + #1
+t20 := t18 * t19
+v5 := t20
+IF v2 >= v4 GOTO label5
+GOTO label4
+LABEL label5 : 
+IF v2 < v5 GOTO label3
+GOTO label4
+LABEL label3 : 
+RETURN v3
+LABEL label4 : 
+t21 := v3 + #1
+v3 := t21
+GOTO label0
+LABEL label2 : 
+t22 := #0 - #1
+RETURN t22
+FUNCTION dist : 
+PARAM v6
+PARAM v7
+ARG &v7 
+ARG &v6 
+t24 := CALL dot
+ARG t24 
+t23 := CALL sqrt
+RETURN t23
+FUNCTION main : 
+DEC v8 120
+v9 := #0
+v10 := #0
+LABEL label6 : 
+IF v9 < #3 GOTO label7
+GOTO label8
+LABEL label7 : 
+v10 := #0
+LABEL label9 : 
+IF v10 < #3 GOTO label10
+GOTO label11
+LABEL label10 : 
+t25 := v9 * #40
+t26 := &v8 + t25
+t27 := t26 + #4
+t28 := t27
+t29 := v10 * #12
+t30 := t28 + t29
+t31 := t30 + #0
+t32 := t31
+t33 := v10 * v9
+t34 := t33 + v10
+*t32 := t34
+t35 := v9 * #40
+t36 := &v8 + t35
+t37 := t36 + #4
+t38 := t37
+t39 := v10 * #12
+t40 := t38 + t39
+t41 := t40 + #4
+t42 := t41
+t43 := v10 * v9
+t44 := t43 * v9
+t45 := t44 + v10
+*t42 := t45
+t46 := v9 * #40
+t47 := &v8 + t46
+t48 := t47 + #4
+t49 := t48
+t50 := v10 * #12
+t51 := t49 + t50
+t52 := t51 + #8
+t53 := t52
+t54 := v10 * v10
+t55 := t54 * v9
+t56 := t55 * v9
+t57 := t56 + v10
+*t53 := t57
+t58 := v10 + #1
+v10 := t58
+GOTO label9
+LABEL label11 : 
+t59 := v9 * #40
+t60 := &v8 + t59
+t61 := t60 + #0
+t62 := t61
+t63 := v9 * #40
+t64 := &v8 + t63
+t65 := t64 + #4
+t66 := t65
+t67 := #1 * #12
+t68 := t66 + t67
+t69 := t68 + #0
+t70 := *t69
+t71 := v9 * #40
+t72 := &v8 + t71
+t73 := t72 + #4
+t74 := t73
+t75 := #2 * #12
+t76 := t74 + t75
+t77 := t76 + #0
+t78 := *t77
+t79 := t70 + t78
+*t62 := t79
+t80 := v9 + #1
+v9 := t80
+GOTO label6
+LABEL label8 : 
+t81 := #0 * #40
+t82 := &v8 + t81
+t83 := t82 + #0
+t84 := *t83
+t85 := #1 * #40
+t86 := &v8 + t85
+t87 := t86 + #0
+t88 := *t87
+t89 := t84 + t88
+t90 := #2 * #40
+t91 := &v8 + t90
+t92 := t91 + #0
+t93 := *t92
+t94 := t89 + t93
+WRITE t94
+t95 := #0
+RETURN #0
