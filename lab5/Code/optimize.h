@@ -10,4 +10,6 @@ struct Node_
     Node next;
 };//存放SSA指令的链表节点
 
+
+
 void IR_optimize(FILE* file1, FILE* file2);
