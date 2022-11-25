@@ -7,6 +7,7 @@ struct Node_
 {
     char exp[1023];
     Node next;
+    Node prev;
 };//存放SSA指令的链表节点
 
 struct T_state

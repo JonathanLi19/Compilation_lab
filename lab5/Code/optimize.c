@@ -1,18 +1,19 @@
 #include "optimize.h"
-Node SSA_head = NULL; //存放所有的SSA形式的中间代码
+Node SSA_head = NULL; //存放所有的SSA形式的中间代码,是一个双向链表
 
 int V[1024] = { 0 }; //记录从三地址码转化为SSA的过程中vi变量对应的t_id
 int T[1024] = { 0 }; //记录从三地址码转化为SSA的过程中ti变量对应的t_id
 int cur_id = 0; //记录当前SSA转换过程中记录到t_id
-struct T_state states[1023] = {0}; //记录当前的SSA中每个t_id的状态
+struct T_state states[1023] = {0}; //记录当前的SSA中每个t_id的状态,用于消除公共子表达式
 struct exp_ sub_exp[1023] = {0}; //存放子表达式的表
 int sub_exp_num = 0;//当前存了几个子表达式
-
+int use[1023] = {0}; //当前每个变量的使用次数，用于消除死代码，自底向上遍历
 Node newNode(char* buf)
 {
     Node p = (Node)(malloc(sizeof(struct Node_)));
     strcpy(p->exp, buf);
     p->next = NULL;
+    p->prev = NULL;
     return p;
 }
 
@@ -29,6 +30,7 @@ void insert(Node p) //将一句SSA代码插入
         p1 = p1->next;
     }
     p1->next = p;
+    p->prev = p1;
     p->next = NULL;
     return;
 }
@@ -46,6 +48,7 @@ void delete_node(Node p) //将一句SSA代码删除
         p1 = p1->next;
     }
     p1->next = p->next;
+    p->next->prev = p1;
     return;
 }
 
@@ -369,6 +372,116 @@ void remove_common_subexp() //消除公共子表达式
         assert(p != NULL);
         p = p->next;
     }
+    return;
+}
+
+void add_use(char* operand) //将当前operand使用次数加1
+{
+    assert(operand[0] == '#' || operand[0] == 't');
+    if(operand[0] == '#')// 常数
+    {
+        //do nothing
+        return;
+    }
+    else
+    {
+        int id = atoi(operand + 1);
+        use[id]++;
+        return;
+    }
+    assert(0);
+    return;
+}
+
+void remove_dead_code()
+{
+    Node p = SSA_head;
+    while(p->next != NULL)
+    {
+        p = p->next;
+    }
+    while(p != NULL) //自下向上遍历
+    {
+        if(p->exp[0] == 'F')//FUCTION
+        {
+            //do nothing
+        }
+        else if(p->exp[0] == 'R' && p->exp[1] == 'E' && p->exp[2] == 'A') //READ
+        {
+            //do nothing
+        }
+        else if(p->exp[0] == 'R' && p->exp[1] == 'E' && p->exp[2] == 'T') //RETURN
+        {
+            //使用了当前operand
+            //operand从7--strlen(exp)-1
+            char operand[1023] = {""};
+            strcpy(operand, p->exp+7);
+            add_use(operand);
+        }
+        else if(p->exp[0] == 'W') //WRITE
+        {
+            //使用了当前operand
+            //operand从6--strlen(exp)-1
+            char operand[1023] = {""};
+            strcpy(operand, p->exp+6);
+            add_use(operand);
+        }
+        else //赋值语句
+        {
+            int colon_pos = -1; //冒号的位置
+            for (int i = 0; i < strlen(p->exp); i++)
+            {
+                if (p->exp[i] == ':')
+                {
+                    colon_pos = i;
+                    break;
+                }
+            }
+            assert(colon_pos != -1);
+            //从0--colon_pos-2是左边的变量；从colon_pos+3--strlen(exp)-1是右边的表达式
+            char left[1023] = { "" };
+            char right[1023] = { "" };
+            strncpy(left, p->exp, colon_pos - 1);
+            strncpy(right, p->exp + colon_pos + 3, (strlen(p->exp) - 1) - (colon_pos + 3) + 1);
+
+            //对left不用操作, 提取出operand_id,看看是否在之前遍历的时候被使用过
+            int left_id = atoi(left + 1);
+            if(use[left_id] == 0) // 后续没有被使用过，说明这是死代码，应该消除
+            {
+                delete_node(p);
+            }
+            else
+            {
+                //对right的operand添加use
+                int op_pos = -1;
+                for (int i = 0; i < strlen(right); i++)
+                {
+                    if (right[i] == '+' || right[i] == '-' || right[i] == '*' || right[i] == '/')
+                    {
+                        op_pos = i;
+                        break;
+                    }
+                }
+                if (op_pos == -1) //说明是一个赋值语句
+                {
+                    //整个right就是右边的operand
+                    add_use(right);
+                }
+                else
+                {
+                    //从0--op_pos-2是operand1;从op_pos+2--strlen(right)-1是operand2
+                    char operand1[1023] = { "" };
+                    char operand2[1023] = { "" };
+                    strncpy(operand1, right, op_pos - 1);
+                    strncpy(operand2, right + op_pos + 2, (strlen(right) - 1) - (op_pos + 2) + 1);
+                    add_use(operand1);
+                    add_use(operand2);
+                }
+            }
+        }
+        p = p->prev;
+    }
+    return;
 }
 
 void IR_optimize(FILE* file1, FILE* file2)
@@ -387,7 +500,8 @@ void IR_optimize(FILE* file1, FILE* file2)
         }
         Trans2SSA(copy);
     }
-    remove_common_subexp();
+    remove_common_subexp();//消除公共子表达式
+    remove_dead_code(); //消除死代码
     printSSA(file2); //仅作调试
     return;
 }

@@ -12,4 +12,5 @@ parser : $(OBJS)
 clean :
 	rm parser $(OBJS)
 test:
-	./parser ../Test/test1.ir ../IR_optimize_result/test1.ir
+	./parser ../Test/test2.ir ../initial_SSA_formal/test2.ir
+# ../initial_SSA_formal/test2.ir ../IR_optimize_result/test.2ir

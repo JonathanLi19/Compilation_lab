@@ -1,0 +1,31 @@
+FUNCTION main :
+READ t1
+t2 := t1
+READ t3
+t4 := t3
+t5 := #2
+t6 := #3
+t7 := t4 + t5
+t8 := t7
+t9 := t8 - t6
+t10 := t9
+t11 := t10 + t5
+t12 := t11
+t13 := t8 - t6
+t14 := t13
+t15 := t8 + t12
+t16 := t15
+t17 := t8 - t14
+t18 := t17
+t19 := t14 + t18
+t20 := t19
+t21 := t10 + t8
+t22 := t21
+t23 := t20 + t18
+t24 := t23
+WRITE t24
+t25 := t22 + t14
+t26 := t25
+WRITE t26
+t27 := #0
+RETURN t27
