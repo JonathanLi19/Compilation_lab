@@ -14,6 +14,8 @@ struct T_state
 {
     int is_dead; //该t_id是否已经dead
     int refer_id; //如果t_id已经dead，它的替代品的id
+    int is_const; //该t_id是否是一个常数
+    int const_val; //如果是一个常数，对应的常数值
 };
 
 struct exp_
