@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <stdarg.h>
+# define LAB4_DBEUG 0
 //操作数
 typedef struct Operand_* Operand;
 struct Operand_{

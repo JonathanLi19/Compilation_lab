@@ -392,7 +392,8 @@ void translate_start(struct Node* cur, FILE *fp)
     head_code->prev = NULL;
     tail_code = head_code;
     translate_Program(cur);
-    //printIntercode(fp); //lab4不需要
+    if(LAB4_DBEUG)
+        printIntercode(fp); //lab4不需要
 }
 
 void translate_Program(struct Node *cur)
@@ -693,9 +694,9 @@ void translate_Arg(struct Node *cur, FieldList para)
 
     Operand temp_op = translate_Exp(getchild(cur, 0), 0);
 
-
     if (para->type->kind == STRUCTURE || para->type->kind == ARRAY)
     {
+        assert(0); //lab4不应该函数参数有数组或者结构体
         //这里应该传地址
         if(temp_op->type != VAL)
         {
@@ -705,7 +706,15 @@ void translate_Arg(struct Node *cur, FieldList para)
             temp_op->type = ADDRESS_AND;
     }
     else
-        temp_op->type = VAL;
+    {
+        //这里要获得值
+        if(temp_op->type == VAL)
+        {
+            //do nothing
+        }
+        else
+            temp_op->type = ADDRESS_STAR;
+    }
     
     if (getchild(cur, 1) != NULL)
         translate_Arg(getchild(cur, 2), para->tail);
@@ -753,16 +762,13 @@ Operand translate_Exp(struct Node *cur, int isleft) //isleft表示当前这个ex
 				if(strcmp(my_node3->name,"Args") == 0)
                 {
 					struct Node* my_node31=getchild(my_node3,0);
-					Operand op_temp=NULL;
+					Operand op_temp = NULL;
 					if(strcmp(my_node31->name,"Exp")==0)
                     {
 						op_temp = translate_Exp(my_node31, isleft);
 					}
 					if(op_temp != NULL)
 					    newIntercode(WRITE, op_temp);
-					//Operand constant_op = createOP(CONSTANT_OPERAND,VAL,0);
-					//place = createOP(TEMP_OPERAND,VAL);
-					//newIntercode(ASSIGN,place,constant_op);
 
 					return place;
 				}
@@ -985,77 +991,6 @@ Operand translate_Exp(struct Node *cur, int isleft) //isleft表示当前这个ex
 			struct Node* ID_node = getchild(cur,2);
             Type struct_type = Exp(my_node1);
             int offset = get_struct_offset(struct_type, ID_node->string_content);
-
-			/*if(offset==0)
-            {
-                place = createOP(TEMP_OPERAND,VAL);
-                if(exp_op->type != VAL)//如果这个Exp对应的node存放的是地址
-                {
-                    if(isleft)
-                    {
-                        //不用动，这时候要的是地址
-                    }
-                    else
-                    {
-                        exp_op->type = ADDRESS_STAR; //这时候要的是传值*v
-                    }
-                }
-                else
-                {
-                    if(isleft)
-                    {
-                        exp_op->type = ADDRESS_AND; //这时候要传地址&v
-                    }
-                    else
-                    {
-                        //不用动，我要传值
-                    }
-                }
-                Operand place_copy = copyOP(place);
-				newIntercode(ASSIGN, place_copy, exp_op);
-				place->varName = ID_node->string_content;
-                if(isleft == 1)//如果是左值，那么说明这个表达式本身存放的是地址
-                    place->type = ADDRESS_AND;
-                else
-                    place->type = VAL;
-				return place;
-			}
-            else
-            {
-                //这时候我要exp_op是个地址;
-                if(exp_op->type != VAL)//如果这个Exp对应的node存放的是地址
-                {
-                    exp_op->type = VAL;//打印的时候就打印v就可以了
-                }
-                else
-                {
-                    exp_op->type = ADDRESS_AND; //这时候要传地址&v
-                }
-				Operand constantop = createOP(CONSTANT_OPERAND,VAL,offset);
-				Operand newtemp = createOP(TEMP_OPERAND, VAL);//这里存放的是地址
-                Operand newtemp_copy = copyOP(newtemp);
-				newIntercode(ADD, newtemp_copy, exp_op, constantop);
-
-                if(isleft)
-                {
-                    //不用动，这时候要的是地址
-                }
-                else
-                {
-                    newtemp->type = ADDRESS_STAR; //这时候要的是传值*v
-                }
-
-                place = createOP(TEMP_OPERAND,VAL);
-                Operand place_copy = copyOP(place);
-                newIntercode(ASSIGN, place_copy, newtemp);
-
-				place->varName = ID_node->string_content;
-                if(isleft == 1)//这时候place里面存放的是地址
-                    place->type = ADDRESS_AND;
-                else
-                    place->type = VAL;
-				return place;
-			}*/
 			//这时候我要exp_op是个地址;
             if(exp_op->type != VAL)//如果这个Exp对应的node存放的是地址
             {

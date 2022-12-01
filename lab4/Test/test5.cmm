@@ -1,0 +1,15 @@
+int f1(int n1)
+{
+    return n1 + 1;
+}
+int f(int n2)
+{
+    return f1(n2) + 3;
+}
+int main()
+{
+    int n = 1;
+    n = f(n);
+    write(n);
+    return 0;
+}

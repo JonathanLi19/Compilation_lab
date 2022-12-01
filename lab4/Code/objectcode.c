@@ -135,6 +135,7 @@ void load_reg(Operand op, int reg, FILE*fp)
 			}
 			else
 			{
+				assert(op->type == ADDRESS_STAR);
 				//赋给reg当前变量作为地址的里面的值
 				fprintf(fp,"  lw %s, %d($fp)\n",_reg[14].name,-offset); // 先把当前变量的值放到t6寄存器
 				fprintf(fp,"  lw %s, 0(%s)\n",_reg[reg].name,_reg[14].name); //再把t6寄存器里面存放的值作为地址，取出里面的值存入reg
@@ -170,7 +171,7 @@ void save_reg(Operand op,int reg,FILE*fp)//把reg的值存到内存;
 		case TEMP_OPERAND:  //与V一样处理
 		case VARIABLE_OPERAND:
 		{
-			int offset=find_op_offset(op);
+			int offset = find_op_offset(op);
 			if(op->type == ADDRESS_AND)
 			{
 				printf("error! can't save address\n"); //&不应该出现在等号左边
@@ -182,6 +183,7 @@ void save_reg(Operand op,int reg,FILE*fp)//把reg的值存到内存;
 			}
 			else
 			{
+				assert(op->type == ADDRESS_STAR);
 				//把当前变量的值作为地址，将reg里面的值存到这个地址中
 				fprintf(fp,"  lw %s, %d($fp)\n",_reg[14].name,-offset);//t6存储要存的目标地址;
 				fprintf(fp,"  sw %s, 0(%s)\n",_reg[reg].name,_reg[14].name);//往目标地址存;
