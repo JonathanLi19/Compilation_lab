@@ -791,16 +791,10 @@ FieldList VarList(struct Node *cur_node, hash_stack cur_stack)
     insert_symbol(newvar_node, cur_stack);
 
     FieldList res_field = result;
-    struct Node *varlist_node = cur_node; //第一个VarList，下面是随后，直到COMMA为NULL
-    while (getchild(varlist_node, 1) != NULL)
-    {
-        varlist_node = getchild(varlist_node, 2);
-        FieldList field = VarList(varlist_node, cur_stack);
-        res_field->tail = field; //插入局部作用域
-        res_field = res_field->tail;
-    }
-    res_field->tail = NULL;
-    
+    struct Node *varlist_node = getchild(cur_node, 2);
+    FieldList field = VarList(varlist_node, cur_stack);
+    res_field->tail = field; //插入局部作用域
+    res_field = res_field->tail;
     return result;
 }
 

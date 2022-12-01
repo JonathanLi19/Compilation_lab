@@ -1,0 +1,54 @@
+int wired_add(int wa_i1, int wa_i2, int wa_i3, int wa_i4,
+              int wa_i5, int wa_i6, int wa_i7, int wa_i8,
+              int wa_i9, int wa_i10, int wa_i11, int wa_i12,
+              int wa_i13, int wa_i14, int wa_i15, int wa_i16,
+              int wa_i17) {
+  int wa_res = 0;
+  wa_res = wa_i1 + wa_i3 + wa_i5 + wa_i7 + wa_i9 - wa_i11 - wa_i13 - wa_i15 + wa_i17;
+  wa_res = wa_res + wa_i2 * wa_i4 - wa_i6 * wa_i8 + wa_i10 * wa_i12 + wa_i14 * wa_i16;
+  if (wa_i1 > 10) {
+    return wa_res;
+  } else {
+    return wa_res + wa_i1;
+  }
+}
+
+int wired_sub(int ws_i1, int ws_i2, int ws_i3, int ws_i4,
+              int ws_i5, int ws_i6, int ws_i7, int ws_i8,
+              int ws_i9, int ws_i10, int ws_i11, int ws_i12,
+              int ws_i13, int ws_i14, int ws_i15, int ws_i16,
+              int ws_i17) {
+  int ws_res = 0;
+  ws_res = ws_i1 - ws_i3 - ws_i5 - ws_i7 + ws_i9 + ws_i11 + ws_i13 + ws_i15 + ws_i17;
+  ws_res = ws_res + ws_i2 - ws_i4 - (ws_i6 + ws_i8 + ws_i10) / ws_i12 + ws_i14 * ws_i16;
+  if (ws_i1 > 10) {
+    return ws_res;
+  } else {
+    return ws_res + ws_i1;
+  }
+}
+
+int main() {
+  int arr[17];
+  int len = 17;
+  int i = 0;
+  int res1, res2;
+  while (i < len) {
+    arr[i] = i * 3 + 2;
+    i = i + 1;
+  }
+
+  res1 = wired_add(arr[0], arr[1], arr[2], arr[3],
+                   arr[4], arr[5], arr[6], arr[7],
+                   arr[8], arr[9], arr[10], arr[11],
+                   arr[12], arr[13], arr[14], arr[15],
+                   arr[16]);
+  res2 = wired_sub(arr[0], arr[1], arr[2], arr[3],
+                   arr[4], arr[5], arr[6], arr[7],
+                   arr[8], arr[9], arr[10], arr[11],
+                   arr[12], arr[13], arr[14], arr[15],
+                   arr[16]);
+  write(res1);
+  write(res2);
+  return 0;
+}

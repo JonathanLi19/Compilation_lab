@@ -1,0 +1,44 @@
+int mod(int m_n, int m_k) {
+  return m_n - (m_n / m_k) * m_k;
+}
+
+int is_prime(int ip_n) {
+  int ip_i = 2;
+  while (ip_i < ip_n) {
+    if (mod(ip_n, ip_i) == 0) {
+      return 0;
+    }
+    ip_i = ip_i + 1;
+  }
+  return 1;
+}
+
+int fab(int f_n) {
+  if (f_n == 1 || f_n == 2) {
+    return 1;
+  } else {
+    return fab(f_n - 1) + fab(f_n - 2);
+  }
+}
+
+int encode(int e_n) {
+  int e_i = 1 * e_n + 2 * e_n + 4 * e_n + 8 * e_n;
+  int e_j = e_n + e_n * e_n + e_n * e_n * e_n;
+  int e_k = (1 + e_n) * e_n / 2;
+  return e_i * e_j + e_j * e_k + e_i * e_k;
+}
+
+int main() {
+  int len = 5;
+  int i = 1;
+  int sum = 0;
+  while (i < len) {
+    if (is_prime(fab(i))) {
+      sum = sum + fab(i);
+    }
+    i = i + 1;
+  }
+  write(sum);
+  write(encode(sum));
+  return 0;
+}

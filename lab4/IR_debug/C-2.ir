@@ -1,0 +1,11 @@
+FUNCTION wired_add : 
+PARAM v0
+PARAM v1
+PARAM v2
+PARAM v3
+PARAM v4
+RETURN #1
+FUNCTION main : 
+v5 := #0
+WRITE v5
+RETURN #0

@@ -423,7 +423,6 @@ void translate_ExtDef(struct Node *cur)
     // | Specifier SEMI (不用生成中间代码)
     // | Specifier FunDec CompSt 
     // | Specifier FunDec SEMI (这次没有函数声明)
-
     struct Node *FunDec = getchild(cur, 1);
     assert(FunDec != NULL);
     if (strcmp(FunDec->name, "FunDec") == 0)
@@ -726,7 +725,6 @@ void translate_Arg(struct Node *cur, FieldList para)
 Operand translate_Exp(struct Node *cur, int isleft) //isleft表示当前这个exp是左值还是右值(默认右值)
 {
     Operand place=NULL;
-
     struct Node* my_node1 = getchild(cur, 0);
 	if(strcmp(my_node1->name,"ID") == 0)
     {
@@ -1126,7 +1124,7 @@ void translate_Cond(struct Node* cur,Operand label_true,Operand label_false)
         else if(strcmp(my_node2->name,"OR")==0)
         {
             Operand new_label = createOP(LABEL_OPERAND,VAL);
-            translate_Cond(my_node1,new_label,label_false);
+            translate_Cond(my_node1,label_true,new_label);
             
             newIntercode(LABEL,new_label);
 
